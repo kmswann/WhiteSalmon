@@ -1,0 +1,90 @@
+---
+title: "White Salmon"
+author: "Kristine Swann"
+date: "3/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+
+
+```{r SettingSession, include=FALSE}
+library(dataRetrieval);
+library (ggplot2); 
+library(EGRET); 
+library(dplyr); 
+library(magrittr); 
+library(lubridate);
+library(trend);
+library(pastecs);
+library(zyp)
+
+```
+
+## Access data
+Data is sourced from USGS gage, accessed online via following code. 
+
+```{r get data}
+siteNo<-'14123500'
+pcode = '00060'
+scode="00003"
+start.date = "1965-10-01"
+end.date="2019-09-30"
+#Load Data
+ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+```
+
+##Wrangle data
+
+```{r fix data}
+#Rename columns
+ws <- renameNWISColumns(ws);colnames(ws)
+
+#Separate Date into Years/Months
+ws$Year <- year(ws$Date); ws$Month <- month(ws$Date)
+ws$YFS <- (ws$Year-min(ws$Year))
+#Create WaterYear
+ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+ws$WaterYFS <- (ws$WaterYear-min(ws$WaterYear))
+###SOMETHING IN THIS GROUPING IS CAUSING PROBLEMS##
+month.flow <- ws %>% 
+  group_by(WaterYFS, Month) %>% 
+  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  round(3)
+month.flow <- as.data.frame(month.flow); 
+annual.flow <- ws %>%
+  group_by(WaterYFS) %>%
+  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  round(3)
+annual.flow <- as.data.frame(annual.flow);  
+#remove those missing more than 10%
+annual.flow <- subset(annual.flow, n>=330)
+```
+
+##Descriptive stats
+
+```{r descriptive stats}
+stat.desc(month.flow)
+#Serial correlation check
+#Annual
+par(mfrow=c(2,2))
+acf(annual.flow$Total_cfs, main = "Annual Autocorrelation Function")
+pacf(annual.flow$Total_cfs, main = "Annual Partial Correlation Function")
+#Monthly
+acf(month.flow$Total_cfs, main = "Monthly Autocorrelation Function")
+pacf(month.flow$Total_cfs, main = "Monthly Partial Autocorrelation Function")
+```
+
+##Regression time
+
+```{r regressions and whatnot}
+#Linear Regression
+linear = lm(Total_cfs ~ WaterYFS , data = annual.flow);  summary(linear)
+
+#Not sure what this applies to...
+x.est <- as.data.frame(seq(0,52,1)); colnames(x.est)<-"WaterYFS"
+y.est <- as.data.frame(predict(linear,x.est, interval="confidence"))
+
