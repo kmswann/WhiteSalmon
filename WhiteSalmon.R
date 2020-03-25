@@ -44,6 +44,7 @@ pacf(annual.flow$Total_cfs, main = "Annual Parial Correlation Function")
 #Monthly
 acf(month.flow$Total_cfs, main = "Monthly Autocorrelation Function")
 pacf(month.flow$Total_cfs, main = "Monthly Partial Autocorrelation Function")
+par(mfrow=c(1,1))
 
 ################################################################################################################
 ################################################################################################################

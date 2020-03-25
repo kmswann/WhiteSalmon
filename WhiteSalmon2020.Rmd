@@ -3,6 +3,8 @@ title: "White Salmon"
 author: "Kristine Swann"
 date: "3/7/2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -14,27 +16,50 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r SettingSession, include=FALSE}
+
+getwd()
+
 library(dataRetrieval);
-library (ggplot2); 
+library (ggplot2);
+library(tidyverse);
+library(zoo);
 library(EGRET); 
 library(dplyr); 
 library(magrittr); 
 library(lubridate);
 library(trend);
 library(pastecs);
+library(leaflet);
+library(mblm);
 library(zyp)
 
+
+#Set theme
+mytheme <- theme_classic(base_size = 14) +
+theme(axis.text = element_text(color = "black"),
+legend.position = "bottom")
+
+theme_set(mytheme)
+
+```
+##Introduction
+
+##Background
+
+ ```{r mapping the basin}
 ```
 
+##Methods Overview
+
 ## Access data
-Data is sourced from USGS gage, accessed online via following code. 
+Data is sourced from a USGS gage on the White Salmon River, accessed online via following code. 
 
 ```{r get data}
 siteNo<-'14123500'
 pcode = '00060'
 scode="00003"
-start.date = "1965-10-01"
-end.date="2019-09-30"
+start.date = "1912-11-01"
+end.date="2020-09-30"
 #Load Data
 ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
 ```
@@ -43,31 +68,57 @@ ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, start
 
 ```{r fix data}
 #Rename columns
-ws <- renameNWISColumns(ws);colnames(ws)
+ws <- renameNWISColumns(ws)
+colnames(ws)
 
 #Separate Date into Years/Months
-ws$Year <- year(ws$Date); ws$Month <- month(ws$Date)
+ws$Year <- year(ws$Date)
+ws$Month <- month(ws$Date)
+#Number the years from start
 ws$YFS <- (ws$Year-min(ws$Year))
+
 #Create WaterYear
 ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+#ws$WaterYear <- as.Date(ws$WaterYear, format = "%Y")
+#Number the wateryears from start
 ws$WaterYFS <- (ws$WaterYear-min(ws$WaterYear))
-###SOMETHING IN THIS GROUPING IS CAUSING PROBLEMS##
+
+
+#Create a summed month flow. 
 month.flow <- ws %>% 
-  group_by(WaterYFS, Month) %>% 
-  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  round(3)
-month.flow <- as.data.frame(month.flow); 
+  group_by(WaterYear,WaterYFS, Year, Month) %>% 
+  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  
+  round(3)
+#turn the summed month flow into drataframe 
+month.flow <- as.data.frame(month.flow)
+#fix the dates up for seasonal work
+month.flow$Date <- as.Date(paste(month.flow$Year, month.flow$Month, 1, sep="-"), format = "%Y-%m-%d")
+
+#create a summed annual flow. 
 annual.flow <- ws %>%
-  group_by(WaterYFS) %>%
+  group_by(WaterYear,WaterYFS) %>%
   summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  round(3)
+#turn summed annual flow into dataframe
 annual.flow <- as.data.frame(annual.flow);  
 #remove those missing more than 10%
 annual.flow <- subset(annual.flow, n>=330)
+
+
+
 ```
 
 ##Descriptive stats
+I start with a review of discharge data from 1912 to 2019. 
 
-```{r descriptive stats}
+ ```{r descriptive stats}
 stat.desc(month.flow)
+
+ggplot(ws, aes(x=Date, y= Flow)) +
+  geom_line()+
+  labs(x = "", y= "Discharge (cfs)")
+#Note data missing in the 1910s and 1930s. 
+
+
 #Serial correlation check
 #Annual
 par(mfrow=c(2,2))
@@ -76,15 +127,124 @@ pacf(annual.flow$Total_cfs, main = "Annual Partial Correlation Function")
 #Monthly
 acf(month.flow$Total_cfs, main = "Monthly Autocorrelation Function")
 pacf(month.flow$Total_cfs, main = "Monthly Partial Autocorrelation Function")
+par(mfrow=c(1,1))
 ```
 
-##Regression time
+
+
+```{r a little more wrangling}
+#Only include from date that USGS lists as the current/historical observations beginning date (1987-10-01)
+
+month.flow.1988 <- month.flow %>%
+  filter(WaterYear > "1987")
+annual.flow.1988 <- annual.flow %>%
+  filter(WaterYear > "1987")
+###########################################################
+#Break the data up by pre and post dam removal 
+#monthly ALL data (just in case)
+pre.month.flow <- month.flow %>%
+  filter(WaterYear < "2012")
+post.month.flow <- month.flow%>%
+  filter(WaterYear >= "2012")
+#annual ALL data (just in case)
+pre.annual.flow <- annual.flow %>%
+  filter(WaterYear < "2012")
+post.annual.flow <- annual.flow%>%
+  filter(WaterYear>="2012")
+#only include from date that USGS lists as the current/historical observations beginning date (1987-10-01)
+pre.month.flow.1988 <- pre.month.flow%>%
+  filter(WaterYear > "1987")
+pre.annual.flow.1988 <- pre.annual.flow %>%
+  filter(WaterYear > "1987")
+
+#break the pre/post data up by equal years pre and post dam removal 
+pre.month.flow.2004 <- pre.month.flow%>%
+  filter(WaterYear >= "2004")
+pre.annual.flow.2004 <- pre.annual.flow %>%
+  filter(WaterYear >= "2004")
+```
+
+ ```{r more data review before moving forward}
+
+ggplot(ws, aes(x=Date, y= Flow)) +
+  geom_line()+
+  labs(x = "", y= "Discharge (cfs)")
+#add vertical lines for 1987, 2004, 2012
+
+#maybe add some 100 year event analyses...
+
+#Serial correlation check
+#Annual
+par(mfrow=c(2,2))
+acf(pannual.flow$Total_cfs, main = "Annual Autocorrelation Function")
+pacf(annual.flow$Total_cfs, main = "Annual Partial Correlation Function")
+#Monthly
+acf(month.flow$Total_cfs, main = "Monthly Autocorrelation Function")
+pacf(month.flow$Total_cfs, main = "Monthly Partial Autocorrelation Function")
+par(mfrow=c(1,1))
+```
+
+
+##1988-2019 annual data
 
 ```{r regressions and whatnot}
 #Linear Regression
-linear = lm(Total_cfs ~ WaterYFS , data = annual.flow);  summary(linear)
-
-#Not sure what this applies to...
-x.est <- as.data.frame(seq(0,52,1)); colnames(x.est)<-"WaterYFS"
+linear = lm(Total_cfs ~ WaterYear , data = annual.flow.1988);  summary(linear)
+x.est <- as.data.frame(seq(1988,2019,1)) 
+colnames(x.est) <- "WaterYear"
 y.est <- as.data.frame(predict(linear,x.est, interval="confidence"))
+
+annualbasic.ts<-ts(annual.flow.1988$Total_cfs, start=min(annual.flow.1988$WaterYear, freq=1))  
+mk <- mk.test(annualbasic.ts)
+mk
+
+sen <- sens.slope(annualbasic.ts)
+sen
+
+#trend package is a little outdated so zsen is being used for some of the parameters needed for plotting CI. 
+
+senagain <- zyp.sen(Total_cfs~WaterYears, annual.flow.1988)
+senagain2 <- mblm (Total_cfs~WaterYears, annual.flow.1988, repeated = TRUE)
+
+##If zyp works, these would work...
+senagain #should confirm same slope as trend package 
+senagain$intercepts  #give list of ALL intercepts
+median(senagain$slopes) #gives same value as sen$estimates
+senagain$coefficients # gives both Intercept and slope estimate (as WaterYear)
+senint <- zsen$coefficients[1]
+senb <- zsen$coefficients[2]
+senhi <- sen$conf.int[2]
+senlo <- sen$conf.int[1]
+# create lines to plot on graph y-axis. We are using the equation y=a+b*x, where a is the intercept and b is the slope
+estimate<-round((senint+senb*seq(0,dim(annual.flow.1988)[1]-1,1)),1)
+#upper confidence interval
+upperc1<-round((senint+senhi*seq(0,dim(annual.flow.1988)[1]-1,1)),1)
+#lower confidence interval
+lowerc1<-round((senint+senlo*seq(0,dim(annual.flow.1988)[1]-1,1)),1)
+
+#Plot Annual Flow over time
+par(mar = c(5,5,3,5))
+plot(annual.flow.1988$WaterYear, annual.flow.1988$Total_cfs, type='n', yaxt="n",
+     ylab="Total Streamflow (cfs)", xlab = 'Water Year', cex.lab=0.9)
+axis(2, las=2, cex.axis=0.8)
+box()
+#add data to the plot
+  points(annual.flow.1988$WaterYear, annual.flow.1988$Total_cfs, col=rgb(0,0,0,0.8), cex=0.8, pch=19)  
+  lines(annual.flow.1988$WaterYear, annual.flow.1988$Total_cfs, col=rgb(0,0,0,0.8))  
+
+#Add linear regression to plot
+  lines(x.est$WaterYear, y.est$fit, col="red", lty=2);
+  lines(lowess(annual.flow.1988$WaterYear, annual.flow.1988$Total_cfs), col="blue", lty=2)
+  
+#draw a polygon between the lower and upper confidence interval  
+polygon(c(rev(annual.flow.1988$WaterYear), (annual.flow.1988$WaterYear)), c(rev(lowerc1), (upperc1)),  col=rgb(0,0,0.2,0.2), border=NA)
+lines(annual.flow.1988$WaterYear, estimate, lty=2, col="darkorchid4")
+legend("bottomleft",c("Annual Flow", "LOWESS", "Linear Regression", "MK regression", "MK confidence interval"), col=c("black","blue","red","darkorchid4",rgb(0,0,0.2)), pch=c(19,NA,NA,NA,22), pt.cex=c(0.8,1,1,1,2), lty=c(1,2,2,2,NA), pt.bg=c(NA,NA,NA,NA,rgb(0,0,0.2,0.2)), cex=0.8)
+title("Various Trendlines 1988-2019 Water Years")
+
+```
+
+
+
+```{R first plots}
 

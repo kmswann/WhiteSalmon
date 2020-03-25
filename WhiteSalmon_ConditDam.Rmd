@@ -1,0 +1,131 @@
+---
+title: "WhiteSalmon2020_Descript"
+author: "Kristine Swann"
+date: "3/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+
+
+```{r SettingSession, include=FALSE}
+
+getwd()
+
+library(dataRetrieval);
+library (ggplot2);
+library(tidyverse);
+library(zoo);
+library(EGRET); 
+library(dplyr); 
+library(magrittr); 
+library(lubridate);
+library(trend);
+library(pastecs);
+library(leaflet);
+library(mblm);
+library(zyp);
+library(wesanderson)
+
+
+#Set theme
+mytheme <- theme_classic(base_size = 14) +
+theme(axis.text = element_text(color = "black"),
+legend.position = "bottom")
+
+theme_set(mytheme)
+
+```
+
+## Access data
+Data is sourced from a USGS gage on the White Salmon River, accessed online via following code. 
+
+```{r get data}
+siteNo<-'14123500'
+pcode = '00060'
+scode="00003"
+start.date = "1912-11-01"
+end.date="2020-09-30"
+#Load Data
+ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+```
+
+##Wrangle data
+
+```{r fix data}
+#Rename columns
+ws <- renameNWISColumns(ws)
+colnames(ws)
+
+#Separate Date into Years/Months
+ws$Year <- year(ws$Date)
+ws$Month <- month(ws$Date)
+#Number the years from start
+ws$YFS <- (ws$Year-min(ws$Year))
+
+#Create WaterYear
+ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+#ws$WaterYear <- as.Date(ws$WaterYear, format = "%Y")
+#Number the wateryears from start
+ws$WaterYFS <- (ws$WaterYear-min(ws$WaterYear))
+
+
+#Create a summed month flow. 
+month.flow <- ws %>% 
+  group_by(WaterYear,WaterYFS, Year, Month) %>% 
+  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  
+  round(3)
+#turn the summed month flow into drataframe 
+month.flow <- as.data.frame(month.flow)
+#fix the dates up for seasonal work
+month.flow$Date <- as.Date(paste(month.flow$Year, month.flow$Month, 1, sep="-"), format = "%Y-%m-%d")
+
+#create a summed annual flow. 
+annual.flow <- ws %>%
+  group_by(WaterYear,WaterYFS) %>%
+  summarise(Total_cfs = sum(Flow, na.rm=T), n=n()) %>%  round(3)
+#turn summed annual flow into dataframe
+annual.flow <- as.data.frame(annual.flow);  
+#remove those missing more than 10%
+annual.flow <- subset(annual.flow, n>=330)
+
+
+
+```
+
+##Descriptive stats
+I start with a review of discharge data from 1912 to 2019. 
+
+```{r descriptive stats}
+ 
+stat.desc(month.flow)
+
+Discharge <- ggplot(ws, aes(x=Date, y= Flow, colour = Flow_cd)) +
+  geom_line()+
+  labs(x = "", y= "Discharge (cfs)", colour = 'Confidence')+
+  scale_color_manual(values = wes_palette("FantasticFox1",5)[3:5])
+
+print(Discharge)
+#Note data missing in the 1910s and 1930s. 
+
+table(ws$Flow_cd)
+#
+
+#Serial correlation check
+#Annual
+par(mfrow=c(2,2))
+acf(annual.flow$Total_cfs, main = "Annual Autocorrelation Function")
+pacf(annual.flow$Total_cfs, main = "Annual Partial Correlation Function")
+#Monthly
+acf(month.flow$Total_cfs, main = "Monthly Autocorrelation Function")
+pacf(month.flow$Total_cfs, main = "Monthly Partial Autocorrelation Function")
+par(mfrow=c(1,1))
+
+```
+
+
