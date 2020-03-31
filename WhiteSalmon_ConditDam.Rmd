@@ -3,6 +3,8 @@ title: "WhiteSalmon2020_Descript"
 author: "Kristine Swann"
 date: "3/24/2020"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -128,4 +130,32 @@ par(mfrow=c(1,1))
 
 ```
 
+##Data Wrangling round 2
 
+```{r a little more wrangling}
+#Only include from date that USGS lists as the current/historical observations beginning date (1987-10-01)
+#Split data up between:
+#1940 - 1988 pre "current/historical observations" as denoted by USGS station site; 
+#1988-2013 start of "curent/historical observations to dam removal; 
+#2013 -2019: dam removal to present day. 
+
+month.flow.1940 <- month.flow %>%
+filter(WaterYear <= "1987") %>%
+  filter(WaterYear >"1939")
+annual.flow.1940 <- annual.flow %>%
+filter(WaterYear <= "1987") %>%
+  filter(WaterYear >"1939")
+
+month.flow.1988 <- month.flow %>%
+  filter(WaterYear > "1987")%>%
+  filter(WaterYear <="2012")
+annual.flow.1988 <- annual.flow %>%
+  filter(WaterYear > "1987")%>%
+  filter(WaterYear <="2012")
+
+month.flow.2013 <- month.flow %>%
+  filter(WaterYear > "2012")
+annual.flow.2013 <- annual.flow %>%
+  filter(WaterYear > "2013")
+
+```
