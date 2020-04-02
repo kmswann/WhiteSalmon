@@ -1,0 +1,84 @@
+---
+output: 
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+    number_sections: yes
+geometry: margin=2.54cm
+title: "White Salmon River Pre and Post Dam Removal: 7Q10 Low Flows"
+subtitle: "https://github.com/kmswann/WhiteSalmon.git"
+author: "Kristine Swann"
+fontsize: 12pt
+mainfont: Times New Roman
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+# Set your working directory
+getwd()
+swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
+
+# Load your packages
+library(dataRetrieval); library(EGRET); library (ggplot2);library(dplyr); library(magrittr); library(lubridate); library(viridis);library(nlme);library(piecewiseSEM); library(TTR)
+
+# Set your ggplot theme
+mytheme <- theme_classic(base_size = 14) +
+theme(axis.text = element_text(color = "black"),
+legend.position = "bottom")
+theme_set(mytheme)
+
+# Load your datasets
+siteNo<-'14123500'#Underwood gage station
+pcode = '00060' #discharge cfs
+scode="00003" #mean
+start.date = "1940-10-01" 
+end.date="2019-09-30"
+#Load Data
+ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+#Rename columns
+ws <- renameNWISColumns(ws)
+colnames(ws)
+```
+
+## R Markdown
+
+
+
+```{r 7q10}
+ws$Q7 <- SMA(ws$Flow_cms,7) #the first 7 observations are not included
+  summary(ws) 
+
+#include year and month variables
+ws$Year <- year(ws$Date);  ws$Month <- month(ws$Date)
+  
+#Calculate the minimum 7 day average in each year
+low.flow <- ws %>%
+  group_by(Year) %>%
+  summarise(MinQ7 = min(Q7, na.rm=T), n=n()) %>%  round(3)
+low.flow <- as.data.frame(low.flow);  
+#remove rows missing more than 10% of data
+low.flow <- subset(low.flow, n>=(365-365*.1))
+
+#rank flows - notice the rank is now in ascending order
+low.flow <- arrange(low.flow, (MinQ7)); low.flow[1:5,]  
+
+low.flow$Rank <- rank(low.flow$MinQ7); low.flow[1:5,]
+ 
+#calculate return interval
+n.years.por <- n.years <- dim(low.flow)[1]; #n.years
+low.flow$ReturnInterval <- (n.years+1)/low.flow$Rank; low.flow[1:5,]
+low.flow$AnnualProb <- round(1/low.flow$ReturnInterval*100,3);  low.flow[1:5,]
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
