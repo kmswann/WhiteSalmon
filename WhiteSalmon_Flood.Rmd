@@ -1,0 +1,189 @@
+---
+output: 
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+    number_sections: yes
+geometry: margin=2.54cm
+title: "White Salmon River Pre and Post Dam Removal: Flood Return Interval"
+subtitle: "https://github.com/kmswann/WhiteSalmon.git"
+author: "Kristine Swann"
+fontsize: 12pt
+mainfont: Times New Roman
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+# Set your working directory
+getwd()
+swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
+
+# Load your packages
+library(dataRetrieval); library(EGRET); library (ggplot2);library(dplyr); library(magrittr); library(lubridate); library(viridis);library(nlme);library(piecewiseSEM)
+
+# Set your ggplot theme
+mytheme <- theme_classic(base_size = 14) +
+theme(axis.text = element_text(color = "black"),
+legend.position = "bottom")
+theme_set(mytheme)
+
+# Load your datasets
+siteNo<-'14123500'#Underwood gage station
+pcode = '00060' #discharge cfs
+scode="00003" #mean
+start.date = "1940-10-01" 
+end.date="2019-09-30"
+#Load Data
+ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+#Rename columns
+ws <- renameNWISColumns(ws)
+colnames(ws)
+```
+
+
+## 
+
+```{r flood return interval, include=FALSE}
+
+
+ws$Year <- year(ws$Date);  ws$Month <- month(ws$Date)
+
+#Create WaterYear
+ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+#ws$WaterYear <- as.Date(ws$WaterYear, format = "%Y")
+
+#Number the years from start
+#ws$YFS <- (ws$Year-min(ws$Year))
+
+
+#Number the wateryears from start
+#ws$WaterYFS <- (ws$WaterYear-min(ws$WaterYear))
+#####################################################################################################
+#Calculate the Flood Return Interval
+#####################################################################################################
+
+#Function to calculate the maximum annual flow
+flood_int = function(data){
+peak.flow <- data %>%
+  group_by(WaterYear) %>%
+  summarise(Peak = max(Flow, na.rm=T), n=n()) %>%  round(3)
+peak.flow <- as.data.frame(peak.flow); 
+
+#remove rows missing more than 10% of data
+peak.flow <- subset(peak.flow, n>=(365-365*.1))
+
+#rank flows
+peak.flow <- arrange(peak.flow, desc(Peak)); peak.flow[1:5,] 
+peak.flow$Rank <- rank(-peak.flow$Peak); peak.flow[1:5,] 
+
+
+#calculate the return interval
+n.years <- dim(peak.flow)[1]; n.years
+peak.flow$ReturnInterval <- (n.years+1)/peak.flow$Rank; peak.flow[1:5,]
+peak.flow$AnnualProb <- round(1/peak.flow$ReturnInterval*100,3);  peak.flow[1:5,]
+
+#return the data frame 
+return(peak.flow)
+}
+
+#Subset the data
+ws.prepost <- subset(ws, Date>="2003-10-01");     
+ws.postdr <- subset(ws, Date>"2011-11-01");         
+ws.predr <- subset(ws, Date >="2003-10-01" & Date<="2011-09-30");         
+
+#Run the function on the data groups
+peak.flow.historic <-flood_int(ws)
+peak.flow.prepost <-flood_int(ws.prepost)
+peak.flow.predr <-flood_int(ws.predr)
+peak.flow.postdr <-flood_int(ws.postdr)
+
+##################################################################################################
+#Make some flood projection LMs
+##################################################################################################
+#determine whether a linear or log regression has the best fit...
+RI.linear.historic <- lm(data = peak.flow.historic, Peak ~ ReturnInterval); RI.linear.historic
+ summary(RI.linear.historic)
+ 
+RI.log.historic <- lm(Peak ~ log(ReturnInterval), data=peak.flow.historic)
+  summary(RI.log.historic)
+
+#Log regression had the best fit
+#Running log regressions for each subset. 
+
+RI.log.prepost <- lm(Peak ~ log(ReturnInterval), data=peak.flow.prepost)
+  summary(RI.log.prepost)
+
+RI.log.pre <- lm(Peak ~ log(ReturnInterval), data=peak.flow.predr)
+  summary(RI.log.pre)
+
+RI.log.post <- lm(Peak ~ log(ReturnInterval), data=peak.flow.postdr)
+  summary(RI.log.post)
+
+
+#Estimate the streamflow at the following return intervals using the log regression
+x.est.historic <- as.data.frame(c(100,200,500,1000)); colnames(x.est.historic)<-"ReturnInterval"
+y.est.historic <- predict(RI.log.historic,x.est.historic, interval="confidence")
+  y.est.historic <- as.data.frame(y.est.historic)
+  #100 year flood ri based on data from 1940-2019
+  y100 = cbind(x.est.historic, y.est.historic);  y100 <- subset(y100, x.est.historic==100)$fit
+  y100
+y.est.prepost <- predict(RI.log.prepost,x.est.historic, interval="confidence")
+  y.est.prepost <- as.data.frame(y.est.prepost)
+y.est.pre <- predict(RI.log.pre,x.est.historic, interval="confidence")
+  y.est.pre <- as.data.frame(y.est.pre)
+y.est.post <- predict(RI.log.post,x.est.historic, interval="confidence")
+  y.est.post <- as.data.frame(y.est.post)
+########################################################################################################
+#PLOT IT OUT
+########################################################################################################
+
+#Plot the return interval with the peak flow
+par(mfrow=c(1,1))    
+par(mar = c(5,5,3,5)) 
+plot(peak.flow.historic$ReturnInterval, peak.flow.historic$Peak, log="x", type='n', yaxt="n", xlim=c(1,1000), ylim=c(0,20000),
+     ylab="Peak Streamflow (cfs)", xlab = 'Return Interval (Years)')
+  axis(2, las=2, cex.axis=0.9)
+  #create minor tick marks
+  minor.ticks <- c(2,3,4,6,7,8,9,20,30,40,60,70,80,90,200,300,400,600,700,800,900)    
+  #add minor tick marks to x-ais
+  axis(1,at=minor.ticks,labels=FALSE, col="darkgray")                                
+box() #draw a box around the plot
+#add points to the plot
+  points(peak.flow.historic$ReturnInterval, peak.flow.historic$Peak, col="#e58601", cex=1.2, pch=19)  
+#plot original regression
+points(x.est.historic$ReturnInterval, y.est.historic$fit, col="#46acc8", pch=2, lwd=2);
+#plot pre dam removal return interval model
+points(x.est.historic$ReturnInterval, y.est.pre$fit, col="#e2d200", pch=12, lwd=2);
+#plot post dam removal return interval model
+points(x.est.historic$ReturnInterval, y.est.post$fit, col="#b41820", pch=5, lwd=2);
+
+#draw ablines
+abline(h=c(y100,y.est.pre$fit[1],y.est.post$fit[1]), col=c("#46acc8","#e2d200","#b41820"), lty=3);
+abline(v=100, col="black", lty=3)
+
+legend("bottomright", c("Period of Record","Est. Flow POR", "Est.Flow 2004-2011", "Est.Flow 2012-2019"), 
+       col=c("#e58601","#46acc8","#e2d200","#b41820"), pch=c(19,2,12,5))
+
+########################################################################################################
+# Table of values
+########################################################################################################
+#create data frame
+RI.table <- as.data.frame(matrix(nrow=4, ncol=6));    
+#give column names
+colnames(RI.table) <- c("Date.Range", "RI_100yr","RI_500yr","RI_1000yr","Nyears","AdjustedR2")
+
+#fill in columns
+  RI.table$Date.Range <- c("1941-2019","2004-2019","2004-2011","2012-2019")
+  RI.table$RI_100yr <- c(y.est.historic$fit[1],y.est.prepost$fit[1],y.est.pre$fit[1], y.est.post$fit[1])
+  RI.table$RI_500yr <- c(y.est.historic$fit[3],y.est.prepost$fit[3],y.est.pre$fit[3], y.est.post$fit[3])
+  RI.table$RI_1000yr <- c(y.est.historic$fit[4],y.est.prepost$fit[4],y.est.ret$fit[4], y.est.post$fit[4])
+  RI.table$Nyears <- c(dim(peak.flow.historic)[1], dim(peak.flow.prepost)[1], dim(peak.flow.predr)[1], dim(peak.flow.postdr)[1])
+  RI.table$AdjustedR2 <- c(summary(RI.log.historic)$adj.r.squared, summary(RI.log.prepost)$adj.r.squared, 
+                          summary(RI.log.pre)$adj.r.squared, summary(RI.log.post)$adj.r.squared)
+#view table
+RI.table
+
+```
+
