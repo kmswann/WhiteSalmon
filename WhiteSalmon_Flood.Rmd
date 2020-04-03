@@ -21,7 +21,7 @@ getwd()
 swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
 
 # Load your packages
-library(dataRetrieval); library(EGRET); library (ggplot2);library(dplyr); library(magrittr); library(lubridate); library(viridis);library(nlme);library(piecewiseSEM)
+library(dataRetrieval); library(EGRET); library (ggplot2);library(dplyr); library(magrittr); library(lubridate); library(viridis);library(nlme);library(piecewiseSEM); library(wesanderson)
 
 # Set your ggplot theme
 mytheme <- theme_classic(base_size = 14) +
@@ -52,14 +52,7 @@ ws$Year <- year(ws$Date);  ws$Month <- month(ws$Date)
 
 #Create WaterYear
 ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
-#ws$WaterYear <- as.Date(ws$WaterYear, format = "%Y")
 
-#Number the years from start
-#ws$YFS <- (ws$Year-min(ws$Year))
-
-
-#Number the wateryears from start
-#ws$WaterYFS <- (ws$WaterYear-min(ws$WaterYear))
 #####################################################################################################
 #Calculate the Flood Return Interval
 #####################################################################################################
@@ -178,7 +171,7 @@ colnames(RI.table) <- c("Date.Range", "RI_100yr","RI_500yr","RI_1000yr","Nyears"
   RI.table$Date.Range <- c("1941-2019","2004-2019","2004-2011","2012-2019")
   RI.table$RI_100yr <- c(y.est.historic$fit[1],y.est.prepost$fit[1],y.est.pre$fit[1], y.est.post$fit[1])
   RI.table$RI_500yr <- c(y.est.historic$fit[3],y.est.prepost$fit[3],y.est.pre$fit[3], y.est.post$fit[3])
-  RI.table$RI_1000yr <- c(y.est.historic$fit[4],y.est.prepost$fit[4],y.est.ret$fit[4], y.est.post$fit[4])
+  RI.table$RI_1000yr <- c(y.est.historic$fit[4],y.est.prepost$fit[4],y.est.pre$fit[4], y.est.post$fit[4])
   RI.table$Nyears <- c(dim(peak.flow.historic)[1], dim(peak.flow.prepost)[1], dim(peak.flow.predr)[1], dim(peak.flow.postdr)[1])
   RI.table$AdjustedR2 <- c(summary(RI.log.historic)$adj.r.squared, summary(RI.log.prepost)$adj.r.squared, 
                           summary(RI.log.pre)$adj.r.squared, summary(RI.log.post)$adj.r.squared)

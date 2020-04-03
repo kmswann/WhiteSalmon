@@ -1,0 +1,127 @@
+---
+output: 
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+    number_sections: yes
+geometry: margin=2.54cm
+title: "White Salmon River Pre and Post Dam Removal: Time Series"
+subtitle: "https://github.com/kmswann/WhiteSalmon.git"
+author: "Kristine Swann"
+fontsize: 12pt
+mainfont: Times New Roman
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+# Set your working directory
+getwd()
+swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
+
+# Load your packages
+library(dataRetrieval); library(EGRET); library (ggplot2);library(dplyr); library(magrittr); library(lubridate);  library(wesanderson); library(zoo); library(trend)
+
+# Set your ggplot theme
+mytheme <- theme_classic(base_size = 14) +
+theme(axis.text = element_text(color = "black"),
+legend.position = "bottom")
+theme_set(mytheme)
+
+# Load your datasets
+siteNo<-'14123500'#Underwood gage station
+pcode = '00060' #discharge cfs
+scode="00003" #mean
+start.date = "1940-10-01" 
+end.date="2019-09-30"
+#Load Data
+ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+#Rename columns
+ws <- renameNWISColumns(ws)
+colnames(ws)
+
+#subset the data
+prepost <- subset(ws, Date>="2003-10-01")
+predr <- subset(ws, Date>="2003-10-01" & Date<= "2011-09-30")
+postdr <- subset(ws, Date>= "2011-11-01")
+
+ws$Year <- year(ws$Date);  ws$Month <- month(ws$Date)
+ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+```
+
+
+```{r}
+month.flow.historic <- ws %>%
+               filter(Date>="1940-10-01") %>%
+               group_by(Month) %>%
+               summarise('historic' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+month.flow.pre <- ws %>%
+               filter(Date<="2011-09-30" & Date >="2003-10-01") %>%
+               group_by(Month) %>%
+               summarise('pre' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+month.flow.post <- ws %>%
+               filter(Date>="2011-11-01") %>%
+               group_by(Month) %>%
+               summarise('post' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+
+
+#create dataframe and bind 3 tables together
+month.flow <- as.data.frame(cbind(month.flow.historic, 
+                                  month.flow.pre[, 2], 
+                                  month.flow.post[, 2])) 
+  
+ 
+
+# Generate time series for historic conditions
+ws.historic.month.ts <- ts(month.flow$historic, frequency = 12, 
+                        start = c(1940, 10, 1), end = c(2019, 9, 30))
+# Run SMK test
+ws.historic.trend <- smk.test(ws.historic.month.ts)
+#no monotonic trend, the p-value is high 
+
+# Inspect results
+ws.historic.trend
+summary(ws.historic.trend)
+#no monotonic trend, the p-value is high
+
+
+# Generate time series for post dam removal conditions
+ws.postdr.month.ts <- ts(month.flow$post, frequency = 12, 
+                        start = c(2011, 11, 1), end = c(2019, 9, 30))
+# Run SMK test
+ws.postdr.trend <- smk.test(ws.postdr.month.ts)
+#no monotonic trend, the p-value is high 
+
+# Inspect results
+ws.postdr.trend
+summary(ws.postdr.trend)
+#no monotonic trend, the p-value is high
+
+
+# Generate time series for equal years before dam removal conditions
+ws.predr.month.ts <- ts(month.flow$pre, frequency = 12, 
+                        start = c(2003, 10, 1), end = c(2011, 9, 30))
+# Run SMK test
+ws.predr.trend <- smk.test(ws.predr.month.ts)
+#no monotonic trend, the p-value is high 
+
+# Inspect results
+ws.predr.trend
+summary(ws.predr.trend)
+#no monotonic trend, the p-value is high
+
+
+
+EnoDischarge.monthly <-
+ggplot(EnoDischarge.late.monthly, aes(x = Date, y = Discharge)) +
+  geom_point() +
+  geom_line()
+print(EnoDischarge.monthly)
+```

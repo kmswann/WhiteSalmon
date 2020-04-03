@@ -33,6 +33,7 @@ library(magrittr);
 library(lubridate);
 library(pastecs);
 library(leaflet);
+library(wesanderson)
 
 # Set your ggplot theme
 mytheme <- theme_classic(base_size = 14) +
