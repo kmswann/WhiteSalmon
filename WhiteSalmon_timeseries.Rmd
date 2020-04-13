@@ -41,10 +41,6 @@ ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, start
 ws <- renameNWISColumns(ws)
 colnames(ws)
 
-#Drop NAs
-ws<-ws%>%
-  drop_na(Flow)
-
 #subset the data
 prepost <- subset(ws, Date>="2003-10-01")
 predr <- subset(ws, Date>="2003-10-01" & Date<= "2011-09-30")
@@ -56,68 +52,35 @@ ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
 
 
 ```{r}
-ws.prepost.ts <- ts(prepost[[4]], frequency = 365)
-
-ws.prepost.decomposed <- stl(ws.prepost.ts, s.window = "periodic")
-plot(ws.prepost.decomposed)
-ws.prepost.components <- as.data.frame(ws.prepost.decomposed$time.series[,1:3])
-ws.prepost.components <- mutate(ws.prepost.components, 
-                                Observed = prepost$Flow,
-                                Date = prepost$Date)
-ggplot(ws.prepost.components)+
-    geom_line(aes(y = Observed, x = Date),  size = 0.25) +
-  geom_line(aes(y = seasonal, x = Date), color = "#c13d75ff") +
-  geom_hline(yintercept = 0, lty = 2) +
-  ylab(expression("Discharge (ft"^3*"/s)"))
-```
-
-```{r}
-
-shapiro.test(predr$Flow)
-shapiro.test(postdr$Flow)
-#p-value is significant, not normal distribution.
-
-var.test(predr$Flow, postdr$Flow)
-#p-value not significant, t-test allowed...???
-
-wilcox.test(predr$Flow, postdr$Flow)
-#p-value significant, the two are sig different
-
-summary(predr$Flow)
-summary(postdr$Flow)
-
-```
-
-```{r}
-
-```
-
-
-```{r}
 month.flow.historic <- ws %>%
                filter(Date>="1940-10-01") %>%
-               group_by(Year, Month) %>%
-               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               group_by(Month) %>%
+               summarise('historic' = mean(Flow, na.rm=T)) %>%  
                round(3)
-month.flow.historic$Date <- as.Date(paste(month.flow.historic$Year, month.flow.historic$Month, 1, sep="-"), format = "%Y-%m-%d")
 
 month.flow.pre <- ws %>%
                filter(Date<="2011-09-30" & Date >="2003-10-01") %>%
-               group_by(Year, Month) %>%
-               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               group_by(Month) %>%
+               summarise('pre' = mean(Flow, na.rm=T)) %>%  
                round(3)
-month.flow.pre$Date <- as.Date(paste(month.flow.pre$Year, month.flow.pre$Month, 1, sep="-"), format = "%Y-%m-%d")
 
 month.flow.post <- ws %>%
                filter(Date>="2011-11-01") %>%
-               group_by(Year, Month) %>%
-               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               group_by(Month) %>%
+               summarise('post' = mean(Flow, na.rm=T)) %>%  
                round(3)
-month.flow.post$Date <- as.Date(paste(month.flow.post$Year, month.flow.post$Month, 1, sep="-"), format = "%Y-%m-%d")
 
+
+
+#create dataframe and bind 3 tables together
+month.flow <- as.data.frame(cbind(month.flow.historic, 
+                                  month.flow.pre[, 2], 
+                                  month.flow.post[, 2])) 
+  
+ 
 
 # Generate time series for historic conditions
-ws.historic.month.ts <- ts(month.flow.historic$flow, frequency = 12, 
+ws.historic.month.ts <- ts(month.flow$historic, frequency = 12, 
                         start = c(1940, 10, 1), end = c(2019, 9, 30))
 # Run SMK test
 ws.historic.trend <- smk.test(ws.historic.month.ts)
@@ -130,7 +93,7 @@ summary(ws.historic.trend)
 
 
 # Generate time series for post dam removal conditions
-ws.postdr.month.ts <- ts(month.flow.post$flow, frequency = 12, 
+ws.postdr.month.ts <- ts(month.flow$post, frequency = 12, 
                         start = c(2011, 11, 1), end = c(2019, 9, 30))
 # Run SMK test
 ws.postdr.trend <- smk.test(ws.postdr.month.ts)
@@ -143,7 +106,7 @@ summary(ws.postdr.trend)
 
 
 # Generate time series for equal years before dam removal conditions
-ws.predr.month.ts <- ts(month.flow.pre$flow, frequency = 12, 
+ws.predr.month.ts <- ts(month.flow$pre, frequency = 12, 
                         start = c(2003, 10, 1), end = c(2011, 9, 30))
 # Run SMK test
 ws.predr.trend <- smk.test(ws.predr.month.ts)
@@ -154,269 +117,11 @@ ws.predr.trend
 summary(ws.predr.trend)
 #no monotonic trend, the p-value is high
 
-ws.monthly <-
-ggplot(month.flow.historic, aes(x = Date, y = flow)) +
-   geom_line()+
-  geom_point(aes(color=Month)) +labs(x="Date", y="Discharge (cfs)")+ 
-  scale_color_viridis(option = "magma", direction = -1)
- 
-print(ws.monthly)
 
+
+EnoDischarge.monthly <-
+ggplot(EnoDischarge.late.monthly, aes(x = Date, y = Discharge)) +
+  geom_point() +
+  geom_line()
+print(EnoDischarge.monthly)
 ```
-
-##Monthly Comparisons 
-
-
-```{r}
-###October
-
-ws.oct.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 10 & Year >= 2003))+
-  geom_point(data=subset(month.flow.historic, Month != 10 & Year >= 2003), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==10 & Year >= 2011))+
-  geom_smooth(data=subset(month.flow.historic, Month==10 & Year < 2011 & Year >=2003))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.oct.equal) 
-
-ws.oct <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 10))+
-  geom_point(data=subset(month.flow.historic, Month != 10), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==10))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.oct) 
-
-### November
-ws.nov <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 11))+
-  geom_point(data=subset(month.flow.historic, Month != 11), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==11))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.nov) 
-
-ws.nov.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 11 & Year >= 2003))+
-  geom_point(data=subset(month.flow.historic, Month != 11 & Year >= 2003), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==11 & Year >= 2011))+
-  geom_smooth(data=subset(month.flow.historic, Month==11 & Year < 2011 & Year >=2003))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.nov.equal)
-
-#December
-
-ws.dec <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 12))+
-  geom_point(data=subset(month.flow.historic, Month != 12), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==12))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.dec) 
-
-ws.dec.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 12 & Year >= 2003))+
-  geom_point(data=subset(month.flow.historic, Month != 12 & Year >= 2003), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==12 & Year >= 2011))+
-  geom_smooth(data=subset(month.flow.historic, Month==12 & Year < 2011 & Year >=2003))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.dec.equal)
-
-#January
-ws.jan <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 1))+
-  geom_point(data=subset(month.flow.historic, Month != 1), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==1))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jan) 
-
-ws.jan.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 1 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 1 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==1 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==1 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jan.equal)
-
-#February
-ws.feb <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 2))+
-  geom_point(data=subset(month.flow.historic, Month != 2), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==2))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.feb) 
-
-ws.feb.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 2 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 2 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==2 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==2 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.feb.equal)
-
-#March
-ws.mar <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 3))+
-  geom_point(data=subset(month.flow.historic, Month != 3), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==3))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.mar) 
-
-ws.mar.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 3 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 3 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==3 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==3 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.mar.equal)
-
-#April
-ws.apr <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 4))+
-  geom_point(data=subset(month.flow.historic, Month != 4), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==4))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.apr) 
-
-ws.apr.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 4 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 4 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==4 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==4 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.apr.equal)
-
-#May
-ws.may <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 5))+
-  geom_point(data=subset(month.flow.historic, Month != 5), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==5))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.may) 
-
-ws.may.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 5 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 5 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==5 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==5 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.may.equal)
-
-#June
-ws.jun <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 6))+
-  geom_point(data=subset(month.flow.historic, Month != 6), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==6))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jun) 
-
-ws.jun.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 6 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 6 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==6 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==6 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jun.equal)
-
-#July
-ws.jul <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 7))+
-  geom_point(data=subset(month.flow.historic, Month != 7), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==7))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jul) 
-
-ws.jul.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 7 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 7 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==7 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==7 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.jul.equal)
-
-#August
-ws.aug <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 8))+
-  geom_point(data=subset(month.flow.historic, Month != 8), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==8))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.aug) 
-
-ws.aug.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 8 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 8 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==8 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==8 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.aug.equal)
-
-#September
-ws.sep <- 
-  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 9))+
-  geom_point(data=subset(month.flow.historic, Month != 9), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==9))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.sep) 
-
-ws.sep.equal <- 
-  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
-   geom_point(data=subset(month.flow.historic, Month == 9 & Year >= 2004))+
-  geom_point(data=subset(month.flow.historic, Month != 9 & Year >= 2004), alpha=.1)+
-  labs(x="Date", y="Discharge (cfs)")+
-  geom_smooth(data=subset(month.flow.historic, Month==9 & Year >= 2012))+
-  geom_smooth(data=subset(month.flow.historic, Month==9 & Year < 2012 & Year >=2004))+
-   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
-print(ws.sep.equal)
-
-Monthlygrid <- cowplot::plot_grid(
-ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, ws.aug, ws.sep,
-   align = 'h', 
-   hjust = -1, 
-   nrow = 4)
-
-print(Monthlygrid)
-
-```
-
