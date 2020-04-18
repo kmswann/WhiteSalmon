@@ -27,27 +27,21 @@ editor_options:
 getwd()
 swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
 
-# Load your packages
-library(trend)
-library(zoo)
-library(dataRetrieval);
-library (ggplot2);
-library(tidyverse);
-library(zoo);
-library(EGRET); 
-library(dplyr); 
-library(magrittr); 
-library(lubridate);
-library(pastecs);
-library(leaflet);
+# Load packages
+library(trend); library(zoo); library(dataRetrieval); library (ggplot2); 
+library(tidyverse); library(zoo); library(EGRET); library(dplyr);library(magrittr);
+library(lubridate);library(pastecs);library(leaflet); library(nlme);
+library(piecewiseSEM); library(TTR); library(wesanderson); library(flextable);
+library(officer); library(reshape2)
 
-# Set your ggplot theme
+
+# Set ggplot theme
 mytheme <- theme_classic(base_size = 14) +
 theme(axis.text = element_text(color = "black"),
 legend.position = "bottom")
 theme_set(mytheme)
 
-# Load your datasets
+# Load datasets
 siteNo<-'14123500'#Underwood gage station
 pcode = '00060' #discharge cfs
 scode="00003" #mean
@@ -55,6 +49,9 @@ start.date = "1912-11-01"
 end.date="2019-09-30"
 #Load Data
 ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, startDate=start.date, endDate=end.date)
+#Rename columns
+ws <- renameNWISColumns(ws)
+colnames(ws)
 ```
 
 
@@ -64,7 +61,7 @@ The White Salmon River (White Salmon) is a tributary of the Columbia River in So
 
 Below hydroelectric dams, the downstream discharge rates – measured in cubic feet per second (cfs) – become altered based on energy production (Grantham et al, 2014). These unnatural flows tend to lower the amount of water in the river during the dry season, as water is conserved in the upstream reservoir for continued energy production. This causes fewer days where the river downstream can be paddled, but more importantly, it is deleterious to salmon habitat (URS, 2005). In 2011, the Condit Dam was removed from the White Salmon. It is assumed that dam removal will benefit both salmon and white water enthusiasts through not only having a physical barrier removed but through restoring natural stream flow conditions on the White Salmon River.  
 
-This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood interval comparisons, seasonal mann kendall time series assessments, and integration of number of paddleable days based on discharge rates. 
+This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood and low flow interval comparisons, Wilcoxon signed-rank test, and seasonal mann kendall time series assessments.
 
 ```{r watershed map, include=FALSE}
 
@@ -75,34 +72,861 @@ This is a multipronged assessment of streamflow trends in the White Salmon pre a
 
 # Dataset Information
 
-Data used here include daily stream flow data and precipitation data for water years 1987-2018. Stream flow data was sourced from a USGS stream gauge station less than one mile downstream of the Condit Dam site (Station ID: 14123500). Additional data on required gauge height and cfs levels for paddling various sections of the White Salmon were sourced through communications with Wet Planet Whitewater, a rafting company located along the White Salmon. 
-Additional spatial data were used for mapping purposes. The sources of these data can be found in the associated README.md file. 
+## USGS Stream Gage Data
 
+Data used here include daily stream flow data for water years 1940-2019. Stream flow data was sourced from a USGS stream gauge station less than one mile downstream of the Condit Dam site (Station ID: 14123500). The data is loaded into R via the dataRetrieval package; a csv of the raw data has been saved in the project folder path ./Data/whitesalmon.csv. 
+
+### Stream data content information
+There are many permutations of the stream gage data that occur through scripts. The raw stream gage data that is the basis for each script file have the following columns:
+
+**agency_cd:** who created the data (USGS)  
+**site_no:** this is the station id (14123500)  
+**Date:** %Y-%m-%d  
+**Flow:** discharge rate in cubic feet per second  
+**Flow_cd:** QA/QC code for discharge data created by USGS  
+**Year:** Year pulled from Date  
+**Month:** Month pulled from Date  
+**WaterYear:** Based on a year of October - September (more detail can be found in WhiteSalmon_writeup.rmd)  
+
+### Stream data wrangling
 USGS stream gauge data was rearranged into water years format, which shifts the 'year' to be the period between October 1st of one year and September 30th of the following year, with the year designated by the calendar year in which that period ends (i.e. the calendar year for September). The data was split into three groups: 
-Water Years 1987 - 2011: Pre dam removal data
-Water Years 2013-2019: Post dam removal data 
-Water Years 2003 - 2011: Pre dam removal data (equal years to post dam removal data)
-Note that 2012 data was left out because that was the water year the dam was removed, and the sediment plug from the dam removal could have impacted flows that year.  
+- Water Years 1941 - 2011: Pre dam removal data
+- Water Years 2012-2019: Post dam removal data 
+- Water Years 2004 - 2011: Pre dam removal data (equal years to post dam removal data)
+- Water Years 2004-2019: Equal years before and after dam removal. 
+Note that Water year 2012 data was included even though dam removal occurred during this year (October 26). 
+
+Not all assessments used all of these water year-based data subsets, but these subsets reflect how time was considered: historical context - also referred to as Period of Record(POR) (1941 to either 2011 or present day), post dam removal (2012-2019), and setting equal years pre and post dam removal to remove the weight of long-term trends of dam-management, peak flows and drought. The specific time frames considered are detailed within each analysis. 
+```{r include=FALSE}
+
+#Separate Date into Years/Months/Water Years
+ws$Year <- year(ws$Date)
+ws$Month <- month(ws$Date)
+ws$WaterYear <- ifelse(ws$Month>=10,ws$Year+1,ws$Year)
+
+#Subset the data
+por <- subset(ws, Date>="1940-10-01"); #period of record 
+historic <- subset(ws, Date<= "2011-09-30" & Date>="1940-10-01"); #historic before dam removed
+prepost <- subset(ws, Date>="2003-10-01");#the last 16 years
+postdr <- subset(ws, Date>"2011-10-01"); #the last 8 years
+predr <- subset(ws, Date >="2003-10-01" & Date<="2011-09-30") #2004-2011 water years
+
+```
+
+
+## Spatial Data
+
+Additional spatial data were used for mapping purposes. The sources of these data are listed below.
+
+
+
+
 
 \newpage
 
 # Exploratory Analysis 
 
-Daily data over 33 years results in numbers of observations well above 10,000 (Figure 2: Daily Discharge Data; Table 2: Descriptive Statistics). The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence. A log transformation was carried out on monthly data but outliers remained; therefore, it was not used.
+Daily data over 78 years results in almost 29,000 days of observations (Figure 2). The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence (Figure 3). A log transformation was carried out on monthly data but outliers remained; therefore, it was not used. Major regional flood events are visible in the raw data time series, including a localized flood event in 1974 and the historic flood of 1996. Descriptive statistics subset by time period show that the overall means, medians and various percentiles are relatively simialr across subsets but that, as expected, historic data have a lower minimum and higher maximum. The 2011-2019 time period has a slightly elevated minimum and slightly lowered maximum, but other percentiles and the median and mean are slightly elevated compared to other periods (Table 1).  This points to potential shifts in discharge trends. When the data is further broken down to monthly means by time period, it appears that seasonal shifts are potentially occurring (Figure 4). In particular, late winter to early spring months show increases in mean discharge compared to both historic and recent (2004-2011) data. Without a reservoir storing spring melt, the river seems to be experiencing higher rainy/wet season flow rates. Further statstistical tests are carried out below to assess this. 
+
+```{r include=FALSE}
+
+#################################################################################################
+#LOOKING AT DISCHARGE RAW
+#################################################################################################
+
+Discharge <- ggplot(ws, aes(x=Date, y= Flow, colour = Flow_cd)) +
+  geom_line()+
+  labs(x = "", y= "Discharge (cfs)", colour = 'Confidence')+
+  scale_color_manual(values = wes_palette("FantasticFox1",5)[3:5])+
+ geom_vline(xintercept = as.Date("2011-10-26"), na.rm=FALSE, show.legend=NA, lty=2, col="black", lwd=1)+
+  geom_text(x = as.Date("2010-01-01"), y = 15000, label = "Decomissioning", hjust = 1, col="#b41820", fontface = "bold", na.rm=FALSE, show.legend = FALSE)+
+    geom_text(x = as.Date("2010-04-01"), y = 14200, label = "begins", hjust = 1, col="#b41820", fontface = "bold", na.rm=FALSE, show.legend = FALSE)+
+    geom_text(x = as.Date("1937-04-01"), y = 8000, label = "Data gap", hjust = 1, col="#b41820", fontface = "bold", na.rm=FALSE, show.legend = FALSE)
+  
+print(Discharge)
+
+```
+#### Figure 2: Discharge over time with USGS QA/QC codes
+
+
+
+#### Table 1: Descriptive statistics based on time frame subsets
+```{r include=FALSE}
+#################################################################################################
+#PULLING SUMMARY STATS OUT OF DATA BASED ON TIME PERIODS
+#################################################################################################
+
+#Create data frame
+sum.stats <- as.data.frame(matrix(nrow=8, ncol=5))
+  colnames(sum.stats) <- c("Statistics","p1940-2019","p2003-2019", "p2003-2011","p2011-2019")
+#First column
+   sum.stats$Statistics <- c("Min","10th percentile","25th percentile","Median","Mean","75th percentile", "90th percentile","Max")
+   
+#Function to fill in second column
+  #data.frame[row number, column number]
+gen_stats = function(data, column.no){
+  sum.stats[1,column.no] <- min(data$Flow);               
+  sum.stats[2,column.no] <- quantile(data$Flow, 0.10);             sum.stats[3,column.no] <- quantile(data$Flow, 0.25);
+  sum.stats[4,column.no] <- median(data$Flow);                     sum.stats[5,column.no] <- mean(data$Flow);
+  sum.stats[6,column.no] <- quantile(data$Flow, 0.75);             sum.stats[7,column.no] <- quantile(data$Flow, 0.90);
+  sum.stats[8,column.no] <- max(data$Flow);               
+  
+  return(sum.stats)
+}
+sum.stats <- gen_stats(ws, 2)
+sum.stats$`p1940-2019` <- round(sum.stats$`p1940-2019`,3)
+sum.stats
+
+#re-run function on subset data
+summary(prepost$Date)
+summary(postdr$Date)
+summary(predr$Date)
+
+#call the function to calculate summary statistics
+sum.stats <- gen_stats(prepost,3)
+sum.stats <- gen_stats(predr,4)
+sum.stats <- gen_stats(postdr,5)
+
+#round values
+sum.stats[,c(2:4)]<- round(sum.stats[,c(2:4)],3)
+  sum.stats
+table1<- flextable(sum.stats)
+table1<- autofit(table1)
+print(table1)
+
+```
+
+```{r include = FALSE}
+################################################################################################
+#Box plot stuff
+################################################################################################
+#Density plots of the different periods
+
+ggplot() +
+  geom_violin(data=predr, aes(x = "2004-2011", y = Flow), fill="#e2d200") +
+   geom_violin(data=postdr, aes(x="2011-2019", y = Flow), fill ="#46acc8") +
+  geom_violin(data=historic, aes(x = "1941-2011", y=Flow), fill ="#e58601")+
+  labs(x = "Period", y = "Discharge (cfs)")
+
+
+```
+#### Figure 3: Discharge during different periods on the White Salmon River. As expected with river data, there are many outliers. 
+```{r include=FALSE}
+#################################################################################################
+#LOOKING AT SEASONAL VARIATION
+#################################################################################################
+
+month.flow.por <- ws %>%
+               filter(Date>="1940-10-01") %>%
+               group_by(Month) %>%
+               summarise('1941 to 2019' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+month.flow.pre <- ws %>%
+               filter(Date<="2011-09-30" & Date >="2003-10-01") %>%
+               group_by(Month) %>%
+               summarise('2004 to 2011' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+month.flow.post <- ws %>%
+               filter(Date>="2011-11-01") %>%
+               group_by(Month) %>%
+               summarise('2012 to 2019' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+
+#create dataframe and bind 3 tables together
+month.flow <- as.data.frame(cbind(month.flow.por, 
+                                  month.flow.pre[, 2], 
+                                  month.flow.post[, 2])) 
+
+
+#Fix up the dataframe for plotting 
+
+month.flow <- arrange(month.flow, Month) #automatically sorts ascending
+
+# Reshape month flow for ggplot (make long)
+month.flow.long <- data.frame() # empty dataframe
+for (g in c("1941 to 2019", "2004 to 2011", "2012 to 2019")) {
+  
+  # Keep slice of dataframe
+  tdf <- month.flow[c('Month', g)]
+  
+  # Create label
+  tdf$group <- g
+  
+  # Rename columns
+  names(tdf) <- c('Month', 'Flow', 'Group')
+  
+  # Bind to month.flow.long
+  month.flow.long <- rbind(month.flow.long, tdf)
+}
+
+# Plot results
+colors <- c("1941 to 2019" = "#e58601", "2004 to 2011" = "#e2d200", "2012 to 2019" = "#46acc8")
+seasonalplot <- 
+ggplot(data = month.flow.long,
+       aes(x = Month, y = Flow, colour = Group)) +
+  geom_point(size = 2) +
+  geom_line() +
+ scale_x_continuous( breaks = seq(1, 12, by = 1))+
+  scale_color_manual(values = colors)+
+  labs(x = 'Month', y = 'Mean streamflow (cfs)', colour = 'Period')
+
+print(seasonalplot)
+
+
+```
+
+#### Figure 4: Monthly averages by subset time periods
 
 
 \newpage
 
 # Analysis
 
+## Question 1: Have peak flows changed since the Condit dam was removed?
+
+Flood return intervals were modeled based on the period of record discharge data (1941-2019). Note that this is not what is referred to as 'historic' data throughout the rest of this assessment, but includes data after dam removal as well. Return intervals for the 2004-2011 and 2012-2019 water years were then created to compare peak discharge estimates for given intervals (100, 200, 500 and 1,000 year flood return intervals). The 2004-2011 period was used to visualize pre-dam removal conditions in the years leading up to the dam removal. The 2004-2011 period was included in order to visually assess if there were dramatic differences in flood regimes in the years leading up to the dam removal. The rationale needing this visualization is that there could have been either basin level land-use changes, precipitation changes, or, most importantly, dam release changes that could have materialized in recent years compared to the historic trends from the 1940s. Looking at such a short period also removes peak events from the dataset. Given that there were no major flood events from 2004-2019, the 2004-2019 visualization is almost functioning as a 'reference condition' by which to judge the 2011-2019 model. 
+
+Flood return intervals were created by parsing and ranking annual peak flows from the datasets, followed by dividing the number of years by the ranked peaks. The annual probability associated with these return intervals was then calculated. The logged return interval values were then put into a linear model against the peak flows for each period. Using these linear models, estimates for the 100, 200, 500 and 1,000 year flood return intervals were calculated using the predict function. As a reference, the 100 year flood return interval based on the period of record is 14,386 cfs. 
+
+The results of these models show that estimated return intervals after Condit Dam was removed are up to 3,000 cfs lower than the period of record estimates or the 2004-2011 estimates (Figure 5, Table 2). Similarly, the return intervals after dam removal are over 1,000 cfs lower than the 2004-2011 period estimates. These results suggest that annual peak flows are actually lower now that the Condit dam has been removed. Recall in Figure 4 that monthly averages during the rainy season appeared to be higher. This could suggest that flows are more consistently high during the rainy seasons, with less incidences of dam-release-related peaks. However, there are a few major caveats here. The largest problem with this assessment is that the linear model for the return intervals for 2004-2011 and 2011-2019 are based on only 8 sample points (annual peaks) each. This is reflected in Table 2, which shows the combined period of 2004-2019 as having overall much lower return intervals. More years of data are needed in order to adequately model for the changes in flood regimes, but for now, this is an interesting glimpse into potential patterns. 
+
+```{r flood return interval, include=FALSE}
 
 
-## Question 1: <insert specific question here and add additional subsections for additional questions below, if needed>
+#####################################################################################################
+#Calculate the Flood Return Interval
+#####################################################################################################
 
-## Question 2: 
+#Function to calculate the maximum annual flow
+flood_int = function(data){
+peak.flow <- data %>%
+  group_by(WaterYear) %>%
+  summarise(Peak = max(Flow, na.rm=T), n=n()) %>%  round(3)
+peak.flow <- as.data.frame(peak.flow); 
+
+#remove rows missing more than 10% of data
+peak.flow <- subset(peak.flow, n>=(365-365*.1))
+
+#rank flows
+peak.flow <- arrange(peak.flow, desc(Peak)); peak.flow[1:5,] 
+peak.flow$Rank <- rank(-peak.flow$Peak); peak.flow[1:5,] 
+
+
+#calculate the return interval
+n.years <- dim(peak.flow)[1]; n.years
+peak.flow$ReturnInterval <- (n.years+1)/peak.flow$Rank; peak.flow[1:5,]
+peak.flow$AnnualProb <- round(1/peak.flow$ReturnInterval*100,3);  peak.flow[1:5,]
+
+#return the data frame 
+return(peak.flow)
+}
+
+
+#Run the function on the data groups
+peak.flow.por <-flood_int(por)
+peak.flow.prepost <-flood_int(prepost)
+peak.flow.predr <-flood_int(predr)
+peak.flow.postdr <-flood_int(postdr)
+
+##################################################################################################
+#Make some flood projection LMs
+##################################################################################################
+
+RI.log.por <- lm(Peak ~ log(ReturnInterval), data=peak.flow.por)
+  summary(RI.log.por)
+
+#Log regression had the best fit
+
+RI.log.prepost <- lm(Peak ~ log(ReturnInterval), data=peak.flow.prepost)
+  summary(RI.log.prepost)
+
+RI.log.pre <- lm(Peak ~ log(ReturnInterval), data=peak.flow.predr)
+  summary(RI.log.pre)
+
+RI.log.post <- lm(Peak ~ log(ReturnInterval), data=peak.flow.postdr)
+  summary(RI.log.post)
+
+
+#Estimate the streamflow at the following return intervals using the log regression
+x.est.por <- as.data.frame(c(100,200,500,1000)); colnames(x.est.por)<-"ReturnInterval"
+y.est.por <- predict(RI.log.por,x.est.por, interval="confidence")
+  y.est.por <- as.data.frame(y.est.por)
+  #100 year flood ri based on data from 1940-2019
+  y100 = cbind(x.est.por, y.est.por);  y100 <- subset(y100, x.est.por==100)$fit
+  y100
+y.est.prepost <- predict(RI.log.prepost,x.est.por, interval="confidence")
+  y.est.prepost <- as.data.frame(y.est.prepost)
+y.est.pre <- predict(RI.log.pre,x.est.por, interval="confidence")
+  y.est.pre <- as.data.frame(y.est.pre)
+y.est.post <- predict(RI.log.post,x.est.por, interval="confidence")
+  y.est.post <- as.data.frame(y.est.post)
+########################################################################################################
+#PLOT IT OUT
+########################################################################################################
+
+#Plot the return interval with the peak flow
+par(mfrow=c(1,1))    
+par(mar = c(5,5,3,5)) 
+plot(peak.flow.por$ReturnInterval, peak.flow.por$Peak, log="x", type='n', yaxt="n", xlim=c(1,1000), ylim=c(0,20000),
+     ylab="Peak Streamflow (cfs)", xlab = 'Return Interval (Years)')
+  axis(2, las=2, cex.axis=0.9)
+  #create minor tick marks
+  minor.ticks <- c(2,3,4,6,7,8,9,20,30,40,60,70,80,90,200,300,400,600,700,800,900)    
+  #add minor tick marks to x-ais
+  axis(1,at=minor.ticks,labels=FALSE, col="darkgray")                                
+box() #draw a box around the plot
+#add points to the plot
+  points(peak.flow.por$ReturnInterval, peak.flow.por$Peak, col="#e58601", cex=1.2, pch=19)  
+#plot original regression
+points(x.est.por$ReturnInterval, y.est.por$fit, col="#e58601", pch=2, lwd=2);
+#plot pre dam removal return interval model
+points(x.est.por$ReturnInterval, y.est.pre$fit, col="#e2d200", pch=12, lwd=2);
+#plot post dam removal return interval model
+points(x.est.por$ReturnInterval, y.est.post$fit, col="#46acc8", pch=5, lwd=2);
+
+#draw ablines
+abline(h=c(y100,y.est.pre$fit[1],y.est.post$fit[1]), col=c("#46acc8","#e2d200","#b41820"), lty=3);
+abline(v=100, col="black", lty=3)
+
+legend("bottomright", c("Period of Record","Est. Flow POR", "Est.Flow 2004-2011", "Est.Flow 2012-2019"), 
+       col=c("#e58601","#e58601","#e2d200","#46acc8"), pch=c(19,2,12,5))
+
+```
+#### Figure 5: Food return intervals modeled by period
+
+#### Table 2: Flood return intervals modeled by period
+```{r include=FALSE}
+########################################################################################################
+# Table of values
+########################################################################################################
+#create data frame
+high.RI.table <- as.data.frame(matrix(nrow=4, ncol=6));    
+#give column names
+colnames(high.RI.table) <- c("Date Range", "RI (100yr)","RI (500yr)","RI (1000yr)","No years","Adjusted R2")
+
+#fill in columns
+  high.RI.table$"Date Range" <- c("1941-2019","2004-2019","2004-2011","2012-2019")
+  high.RI.table$"RI (100yr)" <- c(y.est.por$fit[1],y.est.prepost$fit[1],y.est.pre$fit[1], y.est.post$fit[1])
+  high.RI.table$"RI (500yr)" <- c(y.est.por$fit[3],y.est.prepost$fit[3],y.est.pre$fit[3], y.est.post$fit[3])
+  high.RI.table$"RI (1000yr)" <- c(y.est.por$fit[4],y.est.prepost$fit[4],y.est.pre$fit[4], y.est.post$fit[4])
+  high.RI.table$"No years" <- c(dim(peak.flow.por)[1], dim(peak.flow.prepost)[1], dim(peak.flow.predr)[1], dim(peak.flow.postdr)[1])
+  high.RI.table$"Adjusted R2" <- c(summary(RI.log.por)$adj.r.squared, summary(RI.log.prepost)$adj.r.squared, 
+                          summary(RI.log.pre)$adj.r.squared, summary(RI.log.post)$adj.r.squared)
+#view table
+table2<- flextable(high.RI.table)
+table2<- autofit(table2)
+print(table2)
+
+```
 
 
 
+## Question 2: Have low flows changed since the Condit dam was removed?
+
+The lowest 7-day average flow that occurred annually was calculated for the period of record and the post-dam period. This is referred to as the minimum Q7. The return intervals and annual probabilities were again calculated from these parsed values. Unlike the flood return intervals, in this case, the 7Q10 is the lowest 7-day average discharge that occurs every 10 years. This 7Q10 value is a standard management metric for low flows (EPA, 2018). The 7Q10 based on the period of record is 405 cfs, whereas the 7Q10 for the 2012-2019 period is 452 cfs (Figure 6, Table 3). These calculations are once again based on linear models, in this case using the minimum Q7 values against annual probabilities and then using the predict function to find estimates for the annual probability of exceeding the 7Q10.
+
+For brevity sake, only the period of record and post dam removal period were considered. The model shows that post dam removal low flows are higher than the historic low flows, which when applied to point of record daily discharge means, shows a substantial difference in number of days of low flows (Figure 6, Table 3). This suggests that the natural low flows in the White Salmon River below Condit Dam could have been historically much higher. The dam could have been having significant ecological impacts that were simply not perceived because the age of the structure predates the use of the 7Q10 for river management. Alternatively, again, the data being used to model the 7Q10 since dam removal is limited. There is a need for more years of data. 
+
+```{r minq7}
+
+Fun_7q10 = function(data, ndays){   
+data$Q7 <- SMA(data$Flow, ndays) #the first 7 observations are not included
+  
+  #For each year, calculate the minimum Q7
+  data$Year <- year(data$Date);  data$Month <- month(data$Date)
+  
+  #Maximum Annual Flow
+  low.flow <- data %>%
+    group_by(Year) %>%
+    summarise(MinQ7 = min(Q7, na.rm=T), n=n()) %>%  round(3)
+  
+  low.flow <- as.data.frame(low.flow);  
+  #remove rows missing more than 10% of data
+  low.flow <- subset(low.flow, n>=(365-365*.1))
+  
+  #rank flows
+  low.flow <- arrange(low.flow, (MinQ7)); low.flow[1:5,]
+  low.flow$Rank <- rank(low.flow$MinQ7); low.flow[1:5,]
+  
+  n.years <- dim(low.flow)[1]; n.years
+  low.flow$ReturnInterval <- (n.years+1)/low.flow$Rank; low.flow[1:5,]
+  low.flow$AnnualProb <- round(1/low.flow$ReturnInterval*100,3);  low.flow[1:5,]
+  
+  return (low.flow)
+} #end function
+
+low.flow.por <-Fun_7q10(por,7)
+low.flow.prepost <- Fun_7q10(prepost,7)
+low.flow.pre <- Fun_7q10(predr,7)
+low.flow.post <- Fun_7q10(postdr,7)
+
+```
+
+```{r calculating the 7Q10, echo=FALSE}
+
+#linear regression fits well enough
+linear = lm(MinQ7 ~ AnnualProb , data = low.flow.por);
+  summary(linear)
+
+  x.est <- as.data.frame(seq(0,100,10)); colnames(x.est)<-"AnnualProb"
+  y.est <- predict(linear,x.est, interval="confidence")
+  y.est <- as.data.frame(y.est)
+  
+  #What is the 7Q10 low flow value?
+low.7Q10 <- predict(linear,filter(x.est,AnnualProb==10),interval="confidence"); low.7Q10
+
+```
+
+
+```{r Return Interval, echo=FALSE}
+
+
+#Plot data
+par(mar = c(5,5,3,5)) #set plot margins
+  plot(low.flow.post$AnnualProb, low.flow.post$MinQ7, type='n', yaxt="n", xlim=c(1,100), ylim=c(300,1000),
+       ylab="Min Q7 Streamflow (cfs)", xlab = 'Annual Probability of Exceedance')
+  axis(2, las=2, cex.axis=0.9)
+  points(low.flow.post$AnnualProb, low.flow.post$MinQ7, col="#46acc8", cex=1, pch=19)  
+  abline(v=10, lty=4, col="black")
+  
+  #linear regression
+  linear.post = lm(MinQ7 ~ AnnualProb , data = low.flow.post);
+    summary(linear.post)
+
+  y.est.post <- predict(linear.post,x.est, interval="confidence")
+  y.est.post <- as.data.frame(y.est.post)
+  
+#What is the 7Q10 low flow value?
+  low.7Q10.post <- predict(linear.post,filter(x.est,AnnualProb==10),interval="confidence"); low.7Q10.post
+    abline(h=low.7Q10.post[1], col="#46acc8", lty=2, lwd=2)
+    #abline(h=low.7Q10.post, col="black", lty=4)
+  
+#add original low flow value
+  abline(h=low.7Q10[1], col="#e58601", lty=4)
+  points(low.flow.por$AnnualProb, low.flow.por$MinQ7, col="#e58601", cex=0.6, pch=19)  
+
+legend("top", c("Post Dam Removal Annual Low Flow", "Post Dam Removal 7Q10", "POR Annual Low Flow", "POR 7Q10"), col=c("#46acc8","#46acc8","#e58601","#e58601"),
+       pch=c(19,NA,19,NA), lty=c(0,2,0,4))
+```
+
+#### Figure 6: Annual probability of exceeding the minimum Q7. 
+
+```{r Days where low flow was exceeded using new 7q10, echo=FALSE}
+#plot low flow days
+low.days <- subset(por, Flow <= low.7Q10[1]); dim(low.days)
+  n.years.por <- length(unique(low.days$Year))
+  print(paste0("Probability of occurrence: ", round(n.years.por/length(unique(ws$Year))*100,2)))
+
+plot(por$Date, por$Flow, type='n', yaxt="n", ylim=c(300,1000),
+     ylab="Streamflow (cfs)", xlab = '')
+axis(2, las=2, cex.axis=0.9)
+lines(por$Date, por$Flow, lwd=1, col="#01a08a")
+
+#subset data to only include low flow exceedances
+low.days.post <- subset(por, Flow <= low.7Q10.post[1]); dim(low.days.post)
+#plot points and ablines
+points(low.days.post$Date, low.days.post$Flow, col="#46acc8", pch=19, cex=0.8)  
+abline(v=c(as.Date("2011-10-26")), lty=2, col="black", lwd=3)
+abline(h=low.7Q10.post[1], col="#46acc8", lty=4)
+points(low.days$Date, low.days$Flow, col="#e58601", pch=19)  
+abline(h=low.7Q10[1], col="#e58601", lty=4)
+n.years.post <- length(unique(low.days.post$Year))
+
+```
+#### Figure 7: The number of low flow days in the White Salmon River based on the period of record and post dam removal period
+
+#### Table 3: 7Q10's on the White Salmon River. Note that the number of years are the years where flows occur at or below 7Q10 within the entire period of record based on the 7Q10 for the given period. 
+```{r include = FALSE}
+
+#create table
+low.RI.table <- as.data.frame(matrix(nrow=2, ncol=5));    
+#provide column names
+colnames(low.RI.table) <- c("Date Range", "7Q10 (cfs)","No Years","Annual Prob","Adjusted R2")
+#fill columns with relevant data
+  low.RI.table$"Date Range" <- c("1941-2019","2012-2019")
+ low.RI.table$"7Q10 (cfs)" <- c(round(low.7Q10[1],2), round(low.7Q10.post[1],2))
+  low.RI.table$"No Years" <- c(n.years.por, n.years.post)
+  low.RI.table$"Annual Prob" <- c(round(n.years.por/length(unique(por$Year))*100,2), round(n.years.post/length(unique(por$Year))*100,2))
+  low.RI.table$"Adjusted R2" <- c(round(summary(linear)$adj.r.squared,2), round(summary(linear.post)$adj.r.squared,2))
+low.RI.table
+
+
+table3<- flextable(low.RI.table)
+table3<- autofit(table3)
+print(table3)
+```
+
+
+
+## Question 3: Is there a significant difference between historic and recent conditions and post-dam removal conditions? 
+
+A Wilcox rank sum test was run on the historic and post-dam removal datasets. A Welch's two sample t-test was run on the recent (2004-2011) data and post-dam removal data. The choices to run these tests were based on meeting assumptions associated with the compared datasets. The Shapiro-Wilk normality tests all showed that these datasets do not have normal distributions, as expected (p-values < 0.0001). An F-test to compare two variances between historic and post dam removal data showed the variances of the two datasets to be equal (F=1.41, df = 25931, p-value < 0.0001). This led to using the Wildox rank sum test on these samples. The F-test to compare variances between recent and post dam removal data showed the variances of the two datasets to be unequal (F=1.02; df = 2921, p=value = 0.64).This led to the use of Welch's t-test. 
+
+The results of these tests both showed the means and medians of the compared samples to be significantly different (historic and post-dam removal: Wilcox test, W = 35989876, p-value < 0.0001; recent and post-dam removal: Welch's t-test, t =-5.78, p-value < 0.0001). Based on these tests, the discharge rates in the White Salmon River are significantly different since the Condit Dam has been removed - regardless of whether one looks at the historic data or the more recent data (2004-2011) in comparison to post-dam removal conditions. This is surprising given the violin plots in Figure 3, particularly for the 2004-2011 and 2011-2019 periods which look very similar. 
+
+```{r}
+
+historic.subsample <- sample_n(historic, 5000)
+
+shapiro.test(historic.subsample$Flow)
+shapiro.test(predr$Flow)
+shapiro.test(postdr$Flow)
+#p-value is significant, not normal distribution.
+
+var.test(historic$Flow, postdr$Flow)
+#p-value signficiant, do wilcox. 
+var.test(predr$Flow, postdr$Flow)
+#p-value not significant, carry out t-test. 
+
+t.test(predr$Flow, postdr$Flow)
+#p-value significant, the two are sig different
+
+wilcox.test(historic$Flow, postdr$Flow)
+#p-value significant, the two are sig different
+
+summary(historic$Flow)
+summary(predr$Flow)
+summary(postdr$Flow)
+
+```
+
+
+## Question 4: Are seasonal trends becoming more or less monotonic since the dam was removed?
+
+The Mann Kendall (MK) test is a non-parametric time series regression. It does not require normal distribution, but it does require independence of measurements. While it can be used with daily data, it is more appropriately used, as done here, with monthly data to assure that there is no serial correlation over time. Other assumptions for Mann Kendall regressions include: true conditions, consistently collected data (no gaps), and unbiased methods of measurement. Therefore, it seems that all assumptions have been met for the MK tests.  The White Salmon was not expected to have significantly monotonic trends; rather, the hypothesis here was that post dam conditions will be less monotonic than pre-dam conditions. A higher p-value is used to affirm this hypothesis. These tests were run on monthly data for two time frames: 1966-2018 and 2004-2018. The results are broken up in two ways: overall MK test results for given time period and seasonal (monthly) MK test results for given time periods. 
+
+### Overall MK test results
+
+Seasonal discharge rates were historically monotonic, and even the time period of 2004-2011 had significantly monotonic Seasonal discharge rates (historic: z = -4.33, p-value < 0.0001, seasonal Sen's slope = -1.46; recent pre-dam removal: z = 4.75, p-value < 0.0001, seasonal Sen's slope = 41.60). Conversely, there are no significant monotonic trends since the Condit dam was removed (post-dam removal: z = -1.23, p-value = 0.218). Note that the Sen's slopes associated with historic and 2004-2011 data show very different magnitudes of trends. Historic data shows monotonic decrease in seasonal discharges of -1.46 cfs, whereas the 2004-2011 data shows a seasonal increase of 41.60 cfs per year. The overall importance of these MK tests was to assess how post-dam conditions have changed, and the one conclusion that can be made is that monotonic trends have disappeared since the dam was removed. There is a major caveat here that assessing seasonal trends on an 8 year basis may not include enough data to provide reliable statsitical results. The test results from these three different time periods may be an artifice of this dilemma.The historic MK test results are likely more dependable given the extent of the dataframe. 
+
+### Seasonal MK test results 
+The purpose of looking at MK test results for individual seasons was to assess which seasons are seeing more/less monotonic trends based on the p-values of these individual tests.Because the 2004-2011 data seems potentially flawed due to its smaller sample size, I am only going to look at the post-dam removal results compared to the historic results.The results show that every month had less monotonic trends than the historic data. Note that the post-dam removal resutls also come from a smaller sample size; what these results signify are a glimpse of trends so far. More years of data are needed for these tests to be reliable. Even with the flaws in the datasets sizes, some additional visualizations of monthly averages are included here with LOESS curves in order to visualize the range in monthly values within these three different datasets (Figures 8 and 9). These figures mimic the p-values seen in the seasonal results, which overall show the ranges in discharge to be more narrow in late summer to early fall and winter to spring flows to have much higher ranges. In Figure 9, it appears that February through July have experienced greater vacillation between low and high monthly averages in discharge when compared annually. It is still early, but this could be a sign that the dam was causing more monotonic flows in the river through the storage of water during the rainy/wet season. More years of data will be needed to assess the impact of dam removal. 
+
+
+There is a more complex story than expected when individual seasons for these MK test results are reviewed. The historic data showed significant monotonic trends for the months of September (S = -385, p-value = 0.06) and October (S = -439, p-value = 0.03) - late fall before the rainy season begins. The 2004-2011 data showed near significant monotonic trends for the months of May (S = 15, p-value = 0.06) and June (S =16, p-value = 0.06) - the beginning of the dry season. The historic data, again, is more reliable given the dataset's size. That September and October saw annual decreases in seasonal discharge rates suggests potentially drier conditions later into winter. This could be caused by climate change, or alternatively, it could be the result of dam management practices shifting over time. Practices that could have shifted include: drawing down the reservoir behind Condit dam earlier in the season in order to make room for a higher volume of winter flows (thus preventing infrastructure damage from high flows), or holding water back later in fall due to a lack of precipitation (thus allowing the dam to continue to produce electricity until the rainy season begins). Assessing this trend would require modeling precipitation trends within the basin.
+
+
+```{r}
+month.flow.historic <- ws %>%
+               filter(Date>="1940-10-01") %>%
+               group_by(Year, Month) %>%
+               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+month.flow.historic$Date <- as.Date(paste(month.flow.historic$Year, month.flow.historic$Month, 1, sep="-"), format = "%Y-%m-%d")
+
+month.flow.pre <- ws %>%
+               filter(Date<="2011-09-30" & Date >="2003-10-01") %>%
+               group_by(Year, Month) %>%
+               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+month.flow.pre$Date <- as.Date(paste(month.flow.pre$Year, month.flow.pre$Month, 1, sep="-"), format = "%Y-%m-%d")
+
+month.flow.post <- ws %>%
+               filter(Date>="2011-11-01") %>%
+               group_by(Year, Month) %>%
+               summarise('flow' = mean(Flow, na.rm=T)) %>%  
+               round(3)
+month.flow.post$Date <- as.Date(paste(month.flow.post$Year, month.flow.post$Month, 1, sep="-"), format = "%Y-%m-%d")
+
+
+# Generate time series for historic conditions
+ws.historic.month.ts <- ts(month.flow.historic$flow, frequency = 12, 
+                        start = c(1940, 10, 1), end = c(2011, 9, 30))
+# Run SMK test
+ws.historic.trend <- smk.test(ws.historic.month.ts)
+ws.historic.trend
+summary(ws.historic.trend)
+#monotonic trend, sig p-value
+historic.sens<- sea.sens.slope(ws.historic.month.ts)
+historic.sens
+
+
+# Generate time series for post dam removal conditions
+ws.postdr.month.ts <- ts(month.flow.post$flow, frequency = 12, 
+                        start = c(2011, 11, 1), end = c(2019, 9, 30))
+# Run SMK test on post dam removal data
+ws.postdr.trend <- smk.test(ws.postdr.month.ts)
+ws.postdr.trend
+summary(ws.postdr.trend)
+#no monotonic trend, the p-value is high
+
+
+# Generate time series for equal years before dam removal conditions
+ws.predr.month.ts <- ts(month.flow.pre$flow, frequency = 12, 
+                        start = c(2003, 10, 1), end = c(2011, 9, 30))
+# Run SMK test on 2004-2011 data
+ws.predr.trend <- smk.test(ws.predr.month.ts)
+ws.predr.trend
+summary(ws.predr.trend)
+#monotonic trend, the p-value is low 
+predr.sens<- sea.sens.slope(ws.predr.month.ts)
+predr.sens
+
+```
+
+
+```{r include=FALSE}
+# Monthly visualizations
+
+###October
+
+ws.oct.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 10 & Year >= 2003))+
+  geom_point(data=subset(month.flow.historic, Month != 10 & Year >= 2003), alpha=.1)+
+  labs(x="October", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==10 & Year >= 2011))+
+  geom_smooth(data=subset(month.flow.historic, Month==10 & Year < 2011 & Year >=2003))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+ws.oct <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 10))+
+  geom_point(data=subset(month.flow.historic, Month != 10), alpha=.1)+
+  labs(x="October", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==10))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+### November
+ws.nov <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 11))+
+  geom_point(data=subset(month.flow.historic, Month != 11), alpha=.1)+
+  labs(x="November", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==11))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+ws.nov.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 11 & Year >= 2003))+
+  geom_point(data=subset(month.flow.historic, Month != 11 & Year >= 2003), alpha=.1)+
+  labs(x="November", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==11 & Year >= 2011))+
+  geom_smooth(data=subset(month.flow.historic, Month==11 & Year < 2011 & Year >=2003))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+#December
+
+ws.dec <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 12))+
+  geom_point(data=subset(month.flow.historic, Month != 12), alpha=.1)+
+  labs(x="December", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==12))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+ws.dec.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2003),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 12 & Year >= 2003))+
+  geom_point(data=subset(month.flow.historic, Month != 12 & Year >= 2003), alpha=.1)+
+  labs(x="December", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==12 & Year >= 2011))+
+  geom_smooth(data=subset(month.flow.historic, Month==12 & Year < 2011 & Year >=2003))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+#January
+ws.jan <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 1))+
+  geom_point(data=subset(month.flow.historic, Month != 1), alpha=.1)+
+  labs(x="January", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==1))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+ws.jan.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 1 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 1 & Year >= 2004), alpha=.1)+
+  labs(x="January", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==1 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==1 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+#February
+ws.feb <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 2))+
+  geom_point(data=subset(month.flow.historic, Month != 2), alpha=.1)+
+  labs(x="February", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==2))+
+ 
+
+ws.feb.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 2 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 2 & Year >= 2004), alpha=.1)+
+  labs(x="February", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==2 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==2 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#March
+ws.mar <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 3))+
+  geom_point(data=subset(month.flow.historic, Month != 3), alpha=.1)+
+  labs(x="March", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==3))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+ws.mar.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 3 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 3 & Year >= 2004), alpha=.1)+
+  labs(x="March", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==3 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==3 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#April
+ws.apr <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 4))+
+  geom_point(data=subset(month.flow.historic, Month != 4), alpha=.1)+
+  labs(x="April", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==4))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+ws.apr.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 4 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 4 & Year >= 2004), alpha=.1)+
+  labs(x="April", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==4 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==4 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#May
+ws.may <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 5))+
+  geom_point(data=subset(month.flow.historic, Month != 5), alpha=.1)+
+  labs(x="May", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==5))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+ws.may.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 5 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 5 & Year >= 2004), alpha=.1)+
+  labs(x="May", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==5 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==5 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#June
+ws.jun <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 6))+
+  geom_point(data=subset(month.flow.historic, Month != 6), alpha=.1)+
+  labs(x="June", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==6))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+ 
+
+ws.jun.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 6 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 6 & Year >= 2004), alpha=.1)+
+  labs(x="June", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==6 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==6 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#July
+ws.jul <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 7))+
+  geom_point(data=subset(month.flow.historic, Month != 7), alpha=.1)+
+  labs(x="July", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==7))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+ws.jul.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 7 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 7 & Year >= 2004), alpha=.1)+
+  labs(x="July", y="Discharge (cfs)")+
+  geom_smooth(data=subset(month.flow.historic, Month==7 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==7 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#August
+ws.aug <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 8))+
+  geom_point(data=subset(month.flow.historic, Month != 8), alpha=.1)+
+  labs(x="August", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==8))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+ 
+
+ws.aug.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 8 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 8 & Year >= 2004), alpha=.1)+
+  labs(x="August", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==8 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==8 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+#September
+ws.sep <- 
+  ggplot(month.flow.historic,aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 9))+
+  geom_point(data=subset(month.flow.historic, Month != 9), alpha=.1)+
+  labs(x="September", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==9))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+ws.sep.equal <- 
+  ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
+   geom_point(data=subset(month.flow.historic, Month == 9 & Year >= 2004))+
+  geom_point(data=subset(month.flow.historic, Month != 9 & Year >= 2004), alpha=.1)+
+  labs(x="September", y="")+
+  geom_smooth(data=subset(month.flow.historic, Month==9 & Year >= 2012))+
+  geom_smooth(data=subset(month.flow.historic, Month==9 & Year < 2012 & Year >=2004))+
+   geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
+
+
+```
+
+```{r}
+Monthlygrid <- cowplot::plot_grid(
+ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, ws.aug, ws.sep,
+   align = 'h', 
+   hjust = -1, 
+   nrow = 4)
+
+print(Monthlygrid)
+```
+#### Figure 8: Monthly LOESS curve fit to historic data (1941-2019 water years) on the White Salmon River. Vertical dashed line signifies Condit Dam removal. 
+```{r}
+
+Monthlygridequal <- cowplot::plot_grid(
+ws.oct.equal, ws.nov.equal, ws.dec.equal, ws.jan.equal, ws.feb.equal, ws.mar.equal, ws.apr.equal, ws.may.equal, ws.jun.equal, ws.jul.equal, ws.aug.equal, ws.sep.equal,
+   align = 'h', 
+   hjust = -1, 
+   nrow = 4)
+
+print(Monthlygridequal)
+
+
+```
+#### Figure 9: Monthly LOESS curve fit to 2004-2011 and 2012-2019 water years on the White Salmon River. Vertical dashed line signifies Condit Dam removal. 
 
 \newpage
 

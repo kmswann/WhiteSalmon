@@ -34,6 +34,8 @@ library(lubridate);
 library(pastecs);
 library(leaflet);
 library(wesanderson)
+library(flextable)
+library(officer)
 
 # Set your ggplot theme
 mytheme <- theme_classic(base_size = 14) +
@@ -55,7 +57,7 @@ colnames(ws)
 ```
 
 
-```{r data wrangling for descriptive stats and visuals, include=FALSE}
+```{r discharge overview include=FALSE}
 
 #################################################################################################
 #LOOKING AT DISCHARGE RAW
@@ -65,11 +67,18 @@ stat.desc(month.flow)
 Discharge <- ggplot(ws, aes(x=Date, y= Flow, colour = Flow_cd)) +
   geom_line()+
   labs(x = "", y= "Discharge (cfs)", colour = 'Confidence')+
-  scale_color_manual(values = wes_palette("FantasticFox1",5)[3:5])
+  scale_color_manual(values = wes_palette("FantasticFox1",5)[3:5])+
+ geom_vline(xintercept = as.Date("2011-10-26"), na.rm=FALSE, show.legend=NA, lty=2, col="black", lwd=1)+
+  geom_text(x = as.Date("2010-01-01"), y = 15000, label = "Decomissioning", hjust = 1, col="#b41820", fontface = "bold", na.rm=FALSE, show.legend = FALSE)+
+    geom_text(x = as.Date("2010-04-01"), y = 14200, label = "begins", hjust = 1, col="#b41820", fontface = "bold", na.rm=FALSE, show.legend = FALSE)
 
 print(Discharge)
 
+```
+#### Figure 2: Discharge over time with USGS QA/QC codes
 
+#### Table 1: Descriptive statistics based on time frame subsets
+```{r descriptive stats table include=FALSE}
 #################################################################################################
 #PULLING SUMMARY STATS OUT OF DATA BASED ON TIME PERIODS
 #################################################################################################
@@ -108,7 +117,13 @@ sum.stats <- gen_stats(ws.postdr,5)
 #round values
 sum.stats[,c(2:4)]<- round(sum.stats[,c(2:4)],3)
   sum.stats
+table1<- flextable(sum.stats)
+table1<- autofit(table1)
+print(table1)
 
+```
+
+```{r seasonal variation include=FALSE}
 #################################################################################################
 #LOOKING AT SEASONAL VARIATION
 #################################################################################################
@@ -165,7 +180,7 @@ for (g in c("1941 to 2019", "2004 to 2011", "2012 to 2019")) {
 }
 
 # Plot results
-plot <- 
+seasonalplot <- 
 ggplot(data = month.flow.long,
        aes(x = Month, y = Flow, colour = Group)) +
   geom_point(size = 2) +
@@ -174,8 +189,9 @@ ggplot(data = month.flow.long,
   scale_color_manual(values = wes_palette("FantasticFox1",5)[2:5])+
   labs(x = 'Month', y = 'Mean streamflow (cfs)', colour = 'Time period (Water Years)')
 
-plot
+print(seasonalplot)
 
 
 ```
 
+#### Figure 3: Monthly averages by subset time periods

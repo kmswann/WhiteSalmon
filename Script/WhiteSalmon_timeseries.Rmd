@@ -46,6 +46,7 @@ ws<-ws%>%
   drop_na(Flow)
 
 #subset the data
+historic <- subset(ws, Date<= "2011-09-30")
 prepost <- subset(ws, Date>="2003-10-01")
 predr <- subset(ws, Date>="2003-10-01" & Date<= "2011-09-30")
 postdr <- subset(ws, Date>= "2011-11-01")
@@ -425,5 +426,19 @@ ws.oct.equal, ws.nov.equal, ws.dec.equal, ws.jan.equal, ws.feb.equal, ws.mar.equ
    nrow = 4)
 
 print(Monthlygridequal)
+
+#caption2 <-ggplot()+
+# theme(axis.line=element_blank())+
+ # labs(title = "White Salmon River discharge rates by month - 8 years prior to and post dam removal 
+  #     with LOESS curve. Vertical dashed line signifies Condit Dam removal.")
+
+#Monthlygridequalwcaption <- cowplot::plot_grid(
+#  Monthlygridequal, caption2,
+#  align ='h',
+#  hjust=-1, 
+# nrow=2,
+#  rel_heights = c(.9,.1)
+  
+#)
 ```
 
