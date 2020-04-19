@@ -63,8 +63,8 @@ Below hydroelectric dams, the downstream discharge rates – measured in cubic f
 
 This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood and low flow interval comparisons, Wilcoxon signed-rank test, and seasonal mann kendall time series assessments.
 
-```{r watershed map, echo=FALSE}
-
+```{r echo=FALSE, fig.cap="White Salmon River Basin", out.width = '100%'}
+knitr::include_graphics("./Plots/basinmap.png")
 
 ```
 
