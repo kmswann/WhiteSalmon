@@ -22,7 +22,7 @@ editor_options:
 \listoffigures 
 \newpage
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 # Set your working directory
 getwd()
 swd <- "C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon"
@@ -63,7 +63,7 @@ Below hydroelectric dams, the downstream discharge rates – measured in cubic f
 
 This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood and low flow interval comparisons, Wilcoxon signed-rank test, and seasonal mann kendall time series assessments.
 
-```{r watershed map, include=FALSE}
+```{r watershed map, echo=FALSE}
 
 
 ```
@@ -86,18 +86,19 @@ There are many permutations of the stream gage data that occur through scripts. 
 **Flow_cd:** QA/QC code for discharge data created by USGS  
 **Year:** Year pulled from Date  
 **Month:** Month pulled from Date  
-**WaterYear:** Based on a year of October - September (more detail can be found in WhiteSalmon_writeup.rmd)  
+**WaterYear:** Based on a year of October - September
 
 ### Stream data wrangling
 USGS stream gauge data was rearranged into water years format, which shifts the 'year' to be the period between October 1st of one year and September 30th of the following year, with the year designated by the calendar year in which that period ends (i.e. the calendar year for September). The data was split into three groups: 
+- Water Years 1941-2019: Period of record
 - Water Years 1941 - 2011: Pre dam removal data
 - Water Years 2012-2019: Post dam removal data 
 - Water Years 2004 - 2011: Pre dam removal data (equal years to post dam removal data)
 - Water Years 2004-2019: Equal years before and after dam removal. 
 Note that Water year 2012 data was included even though dam removal occurred during this year (October 26). 
 
-Not all assessments used all of these water year-based data subsets, but these subsets reflect how time was considered: historical context - also referred to as Period of Record(POR) (1941 to either 2011 or present day), post dam removal (2012-2019), and setting equal years pre and post dam removal to remove the weight of long-term trends of dam-management, peak flows and drought. The specific time frames considered are detailed within each analysis. 
-```{r include=FALSE}
+Not all assessments used all of these water year-based data subsets, but these subsets reflect how time was considered: the overall period of record (1941 to 2019), the historical context pre dam removal (1941 to 2011), post dam removal (2012-2019), and setting equal years pre and post dam removal to remove the weight of long-term trends of dam-management, peak flows and drought. The specific time frames considered are detailed within each analysis. 
+```{r echo=FALSE}
 
 #Separate Date into Years/Months/Water Years
 ws$Year <- year(ws$Date)
@@ -126,9 +127,10 @@ Additional spatial data were used for mapping purposes. The sources of these dat
 
 # Exploratory Analysis 
 
-Daily data over 78 years results in almost 29,000 days of observations (Figure 2). The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence (Figure 3). A log transformation was carried out on monthly data but outliers remained; therefore, it was not used. Major regional flood events are visible in the raw data time series, including a localized flood event in 1974 and the historic flood of 1996. Descriptive statistics subset by time period show that the overall means, medians and various percentiles are relatively simialr across subsets but that, as expected, historic data have a lower minimum and higher maximum. The 2011-2019 time period has a slightly elevated minimum and slightly lowered maximum, but other percentiles and the median and mean are slightly elevated compared to other periods (Table 1).  This points to potential shifts in discharge trends. When the data is further broken down to monthly means by time period, it appears that seasonal shifts are potentially occurring (Figure 4). In particular, late winter to early spring months show increases in mean discharge compared to both historic and recent (2004-2011) data. Without a reservoir storing spring melt, the river seems to be experiencing higher rainy/wet season flow rates. Further statstistical tests are carried out below to assess this. 
+Originally, data from 1914 to present day was included (Figure 2). Given the data gap in the mid 1930s, data was parsed to begin on October 1, 1940. Daily data over 78 years results in almost 29,000 days of observations. The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence (Figure 3). A log transformation was carried out on monthly data but outliers remained; therefore, it was not used. Major regional flood events are visible in the raw data time series, including a localized flood event in 1974 and the historic flood of 1996. Descriptive statistics subset by time period show that the overall means, medians and various percentiles are relatively simialr across subsets but that, as expected, historic data have a lower minimum and higher maximum due to sample size. The 2011-2019 time period has a slightly elevated minimum and slightly lowered maximum as one would expect with less samples, but other percentiles and the median and mean are slightly elevated compared to other periods (Table 1).  This points to potential shifts in discharge trends. When the data is further broken down to monthly means by time period, it appears that seasonal shifts are potentially occurring (Figure 4). In particular, late winter to early spring months show increases in mean discharge compared to both historic and recent (2004-2011) data. Without a reservoir storing spring melt, the river seems to be experiencing higher rainy/wet season flow rates. Further statstistical tests are carried out below to assess this. 
 
-```{r include=FALSE}
+```{r fig2, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Discharge over time with USGS QA/QC codes"}
+
 
 #################################################################################################
 #LOOKING AT DISCHARGE RAW
@@ -146,12 +148,13 @@ Discharge <- ggplot(ws, aes(x=Date, y= Flow, colour = Flow_cd)) +
 print(Discharge)
 
 ```
-#### Figure 2: Discharge over time with USGS QA/QC codes
+  
 
 
+\newpage
 
-#### Table 1: Descriptive statistics based on time frame subsets
-```{r include=FALSE}
+
+```{r echo = FALSE}
 #################################################################################################
 #PULLING SUMMARY STATS OUT OF DATA BASED ON TIME PERIODS
 #################################################################################################
@@ -175,12 +178,12 @@ gen_stats = function(data, column.no){
 }
 sum.stats <- gen_stats(ws, 2)
 sum.stats$`p1940-2019` <- round(sum.stats$`p1940-2019`,3)
-sum.stats
+#sum.stats
 
 #re-run function on subset data
-summary(prepost$Date)
-summary(postdr$Date)
-summary(predr$Date)
+#summary(prepost$Date)
+#summary(postdr$Date)
+#summary(predr$Date)
 
 #call the function to calculate summary statistics
 sum.stats <- gen_stats(prepost,3)
@@ -189,14 +192,14 @@ sum.stats <- gen_stats(postdr,5)
 
 #round values
 sum.stats[,c(2:4)]<- round(sum.stats[,c(2:4)],3)
-  sum.stats
-table1<- flextable(sum.stats)
-table1<- autofit(table1)
-print(table1)
+ # sum.stats
+
+knitr::kable(sum.stats, caption = "Descriptive statistics by period")
 
 ```
 
-```{r include = FALSE}
+
+```{r fig3, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Discharge during different periods on the White Salmon River."}
 ################################################################################################
 #Box plot stuff
 ################################################################################################
@@ -210,8 +213,11 @@ ggplot() +
 
 
 ```
-#### Figure 3: Discharge during different periods on the White Salmon River. As expected with river data, there are many outliers. 
-```{r include=FALSE}
+
+
+\newpage
+  
+```{r fig4, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Monthly averages by period."}
 #################################################################################################
 #LOOKING AT SEASONAL VARIATION
 #################################################################################################
@@ -277,7 +283,6 @@ print(seasonalplot)
 
 ```
 
-#### Figure 4: Monthly averages by subset time periods
 
 
 \newpage
@@ -286,13 +291,14 @@ print(seasonalplot)
 
 ## Question 1: Have peak flows changed since the Condit dam was removed?
 
-Flood return intervals were modeled based on the period of record discharge data (1941-2019). Note that this is not what is referred to as 'historic' data throughout the rest of this assessment, but includes data after dam removal as well. Return intervals for the 2004-2011 and 2012-2019 water years were then created to compare peak discharge estimates for given intervals (100, 200, 500 and 1,000 year flood return intervals). The 2004-2011 period was used to visualize pre-dam removal conditions in the years leading up to the dam removal. The 2004-2011 period was included in order to visually assess if there were dramatic differences in flood regimes in the years leading up to the dam removal. The rationale needing this visualization is that there could have been either basin level land-use changes, precipitation changes, or, most importantly, dam release changes that could have materialized in recent years compared to the historic trends from the 1940s. Looking at such a short period also removes peak events from the dataset. Given that there were no major flood events from 2004-2019, the 2004-2019 visualization is almost functioning as a 'reference condition' by which to judge the 2011-2019 model. 
+Flood return intervals were modeled based on the period of record discharge data (1941-2019). Return intervals for the 2004-2011 and 2012-2019 water years were then created to compare peak discharge estimates for given intervals (100, 200, 500 and 1,000 year flood return intervals). The 2004-2011 period was used to visualize pre-dam removal conditions in the years leading up to the dam removal. The 2004-2011 period was included in order to visually assess if there were dramatic differences in flood regimes in the years leading up to the dam removal. The rationale for needing this visualization is that there could have been either basin level land-use changes, precipitation changes, or, most importantly, dam release changes that could have materialized in recent years compared to the historic trends from the 1940s. Looking at such a short period also removes peak events from the dataset. Given that there were no major flood events from 2004-2019, the 2004-2019 visualization is almost functioning as a 'reference condition' by which to judge the 2011-2019 model (although given annual fluctuations in precipitation, there is no true 'reference condition'). 
 
-Flood return intervals were created by parsing and ranking annual peak flows from the datasets, followed by dividing the number of years by the ranked peaks. The annual probability associated with these return intervals was then calculated. The logged return interval values were then put into a linear model against the peak flows for each period. Using these linear models, estimates for the 100, 200, 500 and 1,000 year flood return intervals were calculated using the predict function. As a reference, the 100 year flood return interval based on the period of record is 14,386 cfs. 
+Flood return intervals were created by parsing and ranking annual peak flows from the datasets, followed by dividing the number of years by the ranked peaks. The annual probability associated with these return intervals was calculated. The logged return interval values were then put into a linear model against the peak flows for each period. Using these linear models, estimates for the 100, 200, 500 and 1,000 year flood return intervals were calculated using the predict function. As a reference, the 100 year flood return interval based on the period of record is 14,386 cfs. 
 
-The results of these models show that estimated return intervals after Condit Dam was removed are up to 3,000 cfs lower than the period of record estimates or the 2004-2011 estimates (Figure 5, Table 2). Similarly, the return intervals after dam removal are over 1,000 cfs lower than the 2004-2011 period estimates. These results suggest that annual peak flows are actually lower now that the Condit dam has been removed. Recall in Figure 4 that monthly averages during the rainy season appeared to be higher. This could suggest that flows are more consistently high during the rainy seasons, with less incidences of dam-release-related peaks. However, there are a few major caveats here. The largest problem with this assessment is that the linear model for the return intervals for 2004-2011 and 2011-2019 are based on only 8 sample points (annual peaks) each. This is reflected in Table 2, which shows the combined period of 2004-2019 as having overall much lower return intervals. More years of data are needed in order to adequately model for the changes in flood regimes, but for now, this is an interesting glimpse into potential patterns. 
+The results of these models show that estimated return intervals after the Condit Dam was removed range from approximately 1,700 to 2,500 cfs lower than the period of record estimates (Figure 5, Table 2). Similarly, the return intervals after dam removal are range from approximately 1,200 to 1,600 cfs lower than the 2004-2011 period estimates. These results suggest that annual peak flows are lower now that the Condit Dam has been removed. Recall in Figure 4 that monthly averages during the rainy season appeared to be higher. This could suggest that flows are more consistently high during the rainy seasons, with less incidences of dam-release-related peaks. However, there are a few major caveats here. The largest problem with this assessment is that the linear model for the return intervals for 2004-2011 and 2011-2019 are based on only 8 sample points (annual peaks) each. This is reflected in Table 2, which shows the combined period of 2004-2019 as having overall much lower return intervals than the stand alone periods of 2004-2011 and 2012-2019. More years of data are needed in order to adequately model for the changes in flood regimes, but for now, this is an interesting glimpse into potential patterns. 
 
-```{r flood return interval, include=FALSE}
+  
+```{r fig5, echo=FALSE,message=FALSE,include=TRUE,fig.cap=" Food return intervals modeled by period."}
 
 
 #####################################################################################################
@@ -335,18 +341,18 @@ peak.flow.postdr <-flood_int(postdr)
 ##################################################################################################
 
 RI.log.por <- lm(Peak ~ log(ReturnInterval), data=peak.flow.por)
-  summary(RI.log.por)
+#  summary(RI.log.por)
 
 #Log regression had the best fit
 
 RI.log.prepost <- lm(Peak ~ log(ReturnInterval), data=peak.flow.prepost)
-  summary(RI.log.prepost)
+#  summary(RI.log.prepost)
 
 RI.log.pre <- lm(Peak ~ log(ReturnInterval), data=peak.flow.predr)
-  summary(RI.log.pre)
+#  summary(RI.log.pre)
 
 RI.log.post <- lm(Peak ~ log(ReturnInterval), data=peak.flow.postdr)
-  summary(RI.log.post)
+#  summary(RI.log.post)
 
 
 #Estimate the streamflow at the following return intervals using the log regression
@@ -355,7 +361,7 @@ y.est.por <- predict(RI.log.por,x.est.por, interval="confidence")
   y.est.por <- as.data.frame(y.est.por)
   #100 year flood ri based on data from 1940-2019
   y100 = cbind(x.est.por, y.est.por);  y100 <- subset(y100, x.est.por==100)$fit
-  y100
+ # y100
 y.est.prepost <- predict(RI.log.prepost,x.est.por, interval="confidence")
   y.est.prepost <- as.data.frame(y.est.prepost)
 y.est.pre <- predict(RI.log.pre,x.est.por, interval="confidence")
@@ -394,10 +400,10 @@ legend("bottomright", c("Period of Record","Est. Flow POR", "Est.Flow 2004-2011"
        col=c("#e58601","#e58601","#e2d200","#46acc8"), pch=c(19,2,12,5))
 
 ```
-#### Figure 5: Food return intervals modeled by period
 
-#### Table 2: Flood return intervals modeled by period
-```{r include=FALSE}
+
+
+```{r echo=FALSE}
 ########################################################################################################
 # Table of values
 ########################################################################################################
@@ -414,10 +420,8 @@ colnames(high.RI.table) <- c("Date Range", "RI (100yr)","RI (500yr)","RI (1000yr
   high.RI.table$"No years" <- c(dim(peak.flow.por)[1], dim(peak.flow.prepost)[1], dim(peak.flow.predr)[1], dim(peak.flow.postdr)[1])
   high.RI.table$"Adjusted R2" <- c(summary(RI.log.por)$adj.r.squared, summary(RI.log.prepost)$adj.r.squared, 
                           summary(RI.log.pre)$adj.r.squared, summary(RI.log.post)$adj.r.squared)
-#view table
-table2<- flextable(high.RI.table)
-table2<- autofit(table2)
-print(table2)
+  
+knitr::kable(high.RI.table, caption = "Flood reutrn intervals modeled by period.")
 
 ```
 
@@ -427,9 +431,9 @@ print(table2)
 
 The lowest 7-day average flow that occurred annually was calculated for the period of record and the post-dam period. This is referred to as the minimum Q7. The return intervals and annual probabilities were again calculated from these parsed values. Unlike the flood return intervals, in this case, the 7Q10 is the lowest 7-day average discharge that occurs every 10 years. This 7Q10 value is a standard management metric for low flows (EPA, 2018). The 7Q10 based on the period of record is 405 cfs, whereas the 7Q10 for the 2012-2019 period is 452 cfs (Figure 6, Table 3). These calculations are once again based on linear models, in this case using the minimum Q7 values against annual probabilities and then using the predict function to find estimates for the annual probability of exceeding the 7Q10.
 
-For brevity sake, only the period of record and post dam removal period were considered. The model shows that post dam removal low flows are higher than the historic low flows, which when applied to point of record daily discharge means, shows a substantial difference in number of days of low flows (Figure 6, Table 3). This suggests that the natural low flows in the White Salmon River below Condit Dam could have been historically much higher. The dam could have been having significant ecological impacts that were simply not perceived because the age of the structure predates the use of the 7Q10 for river management. Alternatively, again, the data being used to model the 7Q10 since dam removal is limited. There is a need for more years of data. 
+For brevity sake, only the period of record and post dam removal period were considered. The model shows that post dam removal low flows are higher than the historic low flows, which when applied to point of record daily discharge means, shows a substantial difference in number of days of low flows (Figure 6, Table 3). This suggests that the natural low flows in the White Salmon River below Condit Dam could have been historically much higher prior to dam construction. The dam could have been having significant ecological impacts that were simply not perceived because the age of the structure predates the use of the 7Q10 for river management. Alternatively, again, the data being used to model the 7Q10 since dam removal is limited. There is a need for more years of data. 
 
-```{r minq7}
+```{r include=FALSE}
 
 Fun_7q10 = function(data, ndays){   
 data$Q7 <- SMA(data$Flow, ndays) #the first 7 observations are not included
@@ -455,7 +459,7 @@ data$Q7 <- SMA(data$Flow, ndays) #the first 7 observations are not included
   low.flow$AnnualProb <- round(1/low.flow$ReturnInterval*100,3);  low.flow[1:5,]
   
   return (low.flow)
-} #end function
+} 
 
 low.flow.por <-Fun_7q10(por,7)
 low.flow.prepost <- Fun_7q10(prepost,7)
@@ -464,11 +468,11 @@ low.flow.post <- Fun_7q10(postdr,7)
 
 ```
 
-```{r calculating the 7Q10, echo=FALSE}
+```{r calculating the 7Q10, include =FALSE}
 
 #linear regression fits well enough
 linear = lm(MinQ7 ~ AnnualProb , data = low.flow.por);
-  summary(linear)
+ # summary(linear)
 
   x.est <- as.data.frame(seq(0,100,10)); colnames(x.est)<-"AnnualProb"
   y.est <- predict(linear,x.est, interval="confidence")
@@ -480,7 +484,7 @@ low.7Q10 <- predict(linear,filter(x.est,AnnualProb==10),interval="confidence"); 
 ```
 
 
-```{r Return Interval, echo=FALSE}
+```{r fig6, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Annual probability of exceeding the minimum Q7."}
 
 
 #Plot data
@@ -493,16 +497,15 @@ par(mar = c(5,5,3,5)) #set plot margins
   
   #linear regression
   linear.post = lm(MinQ7 ~ AnnualProb , data = low.flow.post);
-    summary(linear.post)
+  #  summary(linear.post)
 
   y.est.post <- predict(linear.post,x.est, interval="confidence")
   y.est.post <- as.data.frame(y.est.post)
   
 #What is the 7Q10 low flow value?
-  low.7Q10.post <- predict(linear.post,filter(x.est,AnnualProb==10),interval="confidence"); low.7Q10.post
+  low.7Q10.post <- predict(linear.post,filter(x.est,AnnualProb==10),interval="confidence"); #low.7Q10.post
     abline(h=low.7Q10.post[1], col="#46acc8", lty=2, lwd=2)
-    #abline(h=low.7Q10.post, col="black", lty=4)
-  
+
 #add original low flow value
   abline(h=low.7Q10[1], col="#e58601", lty=4)
   points(low.flow.por$AnnualProb, low.flow.por$MinQ7, col="#e58601", cex=0.6, pch=19)  
@@ -511,13 +514,12 @@ legend("top", c("Post Dam Removal Annual Low Flow", "Post Dam Removal 7Q10", "PO
        pch=c(19,NA,19,NA), lty=c(0,2,0,4))
 ```
 
-#### Figure 6: Annual probability of exceeding the minimum Q7. 
 
-```{r Days where low flow was exceeded using new 7q10, echo=FALSE}
+
+```{r fig7, echo=FALSE,message=FALSE,include=TRUE,fig.cap="The number of low flow days in the White Salmon River based on the period of record and post dam removal period."}
 #plot low flow days
-low.days <- subset(por, Flow <= low.7Q10[1]); dim(low.days)
+low.days <- subset(por, Flow <= low.7Q10[1]); 
   n.years.por <- length(unique(low.days$Year))
-  print(paste0("Probability of occurrence: ", round(n.years.por/length(unique(ws$Year))*100,2)))
 
 plot(por$Date, por$Flow, type='n', yaxt="n", ylim=c(300,1000),
      ylab="Streamflow (cfs)", xlab = '')
@@ -525,7 +527,7 @@ axis(2, las=2, cex.axis=0.9)
 lines(por$Date, por$Flow, lwd=1, col="#01a08a")
 
 #subset data to only include low flow exceedances
-low.days.post <- subset(por, Flow <= low.7Q10.post[1]); dim(low.days.post)
+low.days.post <- subset(por, Flow <= low.7Q10.post[1]);
 #plot points and ablines
 points(low.days.post$Date, low.days.post$Flow, col="#46acc8", pch=19, cex=0.8)  
 abline(v=c(as.Date("2011-10-26")), lty=2, col="black", lwd=3)
@@ -535,10 +537,10 @@ abline(h=low.7Q10[1], col="#e58601", lty=4)
 n.years.post <- length(unique(low.days.post$Year))
 
 ```
-#### Figure 7: The number of low flow days in the White Salmon River based on the period of record and post dam removal period
 
-#### Table 3: 7Q10's on the White Salmon River. Note that the number of years are the years where flows occur at or below 7Q10 within the entire period of record based on the 7Q10 for the given period. 
-```{r include = FALSE}
+
+ 
+```{r echo = FALSE}
 
 #create table
 low.RI.table <- as.data.frame(matrix(nrow=2, ncol=5));    
@@ -550,12 +552,9 @@ colnames(low.RI.table) <- c("Date Range", "7Q10 (cfs)","No Years","Annual Prob",
   low.RI.table$"No Years" <- c(n.years.por, n.years.post)
   low.RI.table$"Annual Prob" <- c(round(n.years.por/length(unique(por$Year))*100,2), round(n.years.post/length(unique(por$Year))*100,2))
   low.RI.table$"Adjusted R2" <- c(round(summary(linear)$adj.r.squared,2), round(summary(linear.post)$adj.r.squared,2))
-low.RI.table
 
 
-table3<- flextable(low.RI.table)
-table3<- autofit(table3)
-print(table3)
+knitr::kable(low.RI.table, caption = "7Q10s on the White Salmon River. Note that the number of years are the years where flows occur at or below 7Q10 within the entire period of record based on the 7Q10 for the given period.")
 ```
 
 
@@ -566,7 +565,7 @@ A Wilcox rank sum test was run on the historic and post-dam removal datasets. A 
 
 The results of these tests both showed the means and medians of the compared samples to be significantly different (historic and post-dam removal: Wilcox test, W = 35989876, p-value < 0.0001; recent and post-dam removal: Welch's t-test, t =-5.78, p-value < 0.0001). Based on these tests, the discharge rates in the White Salmon River are significantly different since the Condit Dam has been removed - regardless of whether one looks at the historic data or the more recent data (2004-2011) in comparison to post-dam removal conditions. This is surprising given the violin plots in Figure 3, particularly for the 2004-2011 and 2011-2019 periods which look very similar. 
 
-```{r}
+```{r include=FALSE}
 
 historic.subsample <- sample_n(historic, 5000)
 
@@ -608,7 +607,7 @@ The purpose of looking at MK test results for individual seasons was to assess w
 There is a more complex story than expected when individual seasons for these MK test results are reviewed. The historic data showed significant monotonic trends for the months of September (S = -385, p-value = 0.06) and October (S = -439, p-value = 0.03) - late fall before the rainy season begins. The 2004-2011 data showed near significant monotonic trends for the months of May (S = 15, p-value = 0.06) and June (S =16, p-value = 0.06) - the beginning of the dry season. The historic data, again, is more reliable given the dataset's size. That September and October saw annual decreases in seasonal discharge rates suggests potentially drier conditions later into winter. This could be caused by climate change, or alternatively, it could be the result of dam management practices shifting over time. Practices that could have shifted include: drawing down the reservoir behind Condit dam earlier in the season in order to make room for a higher volume of winter flows (thus preventing infrastructure damage from high flows), or holding water back later in fall due to a lack of precipitation (thus allowing the dam to continue to produce electricity until the rainy season begins). Assessing this trend would require modeling precipitation trends within the basin.
 
 
-```{r}
+```{r echo=FALSE}
 month.flow.historic <- ws %>%
                filter(Date>="1940-10-01") %>%
                group_by(Year, Month) %>%
@@ -636,11 +635,11 @@ ws.historic.month.ts <- ts(month.flow.historic$flow, frequency = 12,
                         start = c(1940, 10, 1), end = c(2011, 9, 30))
 # Run SMK test
 ws.historic.trend <- smk.test(ws.historic.month.ts)
-ws.historic.trend
-summary(ws.historic.trend)
+#ws.historic.trend
+#summary(ws.historic.trend)
 #monotonic trend, sig p-value
 historic.sens<- sea.sens.slope(ws.historic.month.ts)
-historic.sens
+#historic.sens
 
 
 # Generate time series for post dam removal conditions
@@ -648,8 +647,8 @@ ws.postdr.month.ts <- ts(month.flow.post$flow, frequency = 12,
                         start = c(2011, 11, 1), end = c(2019, 9, 30))
 # Run SMK test on post dam removal data
 ws.postdr.trend <- smk.test(ws.postdr.month.ts)
-ws.postdr.trend
-summary(ws.postdr.trend)
+#ws.postdr.trend
+#summary(ws.postdr.trend)
 #no monotonic trend, the p-value is high
 
 
@@ -658,11 +657,11 @@ ws.predr.month.ts <- ts(month.flow.pre$flow, frequency = 12,
                         start = c(2003, 10, 1), end = c(2011, 9, 30))
 # Run SMK test on 2004-2011 data
 ws.predr.trend <- smk.test(ws.predr.month.ts)
-ws.predr.trend
-summary(ws.predr.trend)
+#ws.predr.trend
+#summary(ws.predr.trend)
 #monotonic trend, the p-value is low 
 predr.sens<- sea.sens.slope(ws.predr.month.ts)
-predr.sens
+#predr.sens
 
 ```
 
@@ -751,7 +750,7 @@ ws.feb <-
   geom_point(data=subset(month.flow.historic, Month != 2), alpha=.1)+
   labs(x="February", y="")+
   geom_smooth(data=subset(month.flow.historic, Month==2))+
- 
+  geom_vline(aes(xintercept = as.numeric(as.Date("2011-10-26"))), colour = "olivedrab", linetype = 4,lwd=1)
 
 ws.feb.equal <- 
   ggplot(data=subset(month.flow.historic, Year>=2004),aes(x = Date, y = flow)) +
@@ -904,7 +903,7 @@ ws.sep.equal <-
 
 ```
 
-```{r}
+```{r fig8, echo=FALSE,fig.width=7.25, fig.height=9, message=FALSE,include=TRUE,fig.cap=" Monthly LOESS curve fit to historic data (1941-2019 water years) on the White Salmon River. Vertical dashed line signifies Condit Dam removal."}
 Monthlygrid <- cowplot::plot_grid(
 ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, ws.aug, ws.sep,
    align = 'h', 
@@ -913,8 +912,8 @@ ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, 
 
 print(Monthlygrid)
 ```
-#### Figure 8: Monthly LOESS curve fit to historic data (1941-2019 water years) on the White Salmon River. Vertical dashed line signifies Condit Dam removal. 
-```{r}
+
+```{r fig9, fig.width = 7.25, fig.height=9, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Monthly LOESS curve fit to 2004-2011 and 2012-2019 water years on the White Salmon River. Vertical dashed line signifies Condit Dam removal. "}
 
 Monthlygridequal <- cowplot::plot_grid(
 ws.oct.equal, ws.nov.equal, ws.dec.equal, ws.jan.equal, ws.feb.equal, ws.mar.equal, ws.apr.equal, ws.may.equal, ws.jun.equal, ws.jul.equal, ws.aug.equal, ws.sep.equal,
@@ -926,7 +925,8 @@ print(Monthlygridequal)
 
 
 ```
-#### Figure 9: Monthly LOESS curve fit to 2004-2011 and 2012-2019 water years on the White Salmon River. Vertical dashed line signifies Condit Dam removal. 
+
+
 
 \newpage
 
