@@ -64,7 +64,7 @@ Below hydroelectric dams, the downstream discharge rates – measured in cubic f
 This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood and low flow interval comparisons, Wilcoxon signed-rank test, and seasonal mann kendall time series assessments.
 
 ```{r echo=FALSE, fig.cap="White Salmon River Basin", out.width = '100%'}
-knitr::include_graphics("./Plots/basinmap.png")
+knitr::include_graphics("C:/Users/krist/Box Sync/Spring 2020/R/Environmental_Data_Analytics_2020/WhiteSalmon/Plots/basinmap.png")
 
 ```
 
@@ -74,7 +74,7 @@ knitr::include_graphics("./Plots/basinmap.png")
 
 ## USGS Stream Gage Data
 
-Data used here include daily stream flow data for water years 1940-2019. Stream flow data was sourced from a USGS stream gauge station less than one mile downstream of the Condit Dam site (Station ID: 14123500). The data is loaded into R via the dataRetrieval package; a csv of the raw data has been saved in the project folder path ./Data/whitesalmon.csv. 
+Data used here include daily stream flow data for water years 1940-2019. Stream flow data was sourced from a USGS stream gauge station less than one mile downstream of the Condit Dam site (Station ID: 14123500). This station is colloquially referred to as the 'Underwood Gage'. The data is loaded into R via the dataRetrieval package; a csv of the raw data has been saved in the project folder path ./Data/whitesalmon.csv. 
 
 ### Stream data content information
 There are many permutations of the stream gage data that occur through scripts. The raw stream gage data that is the basis for each script file have the following columns:
@@ -119,15 +119,20 @@ predr <- subset(ws, Date >="2003-10-01" & Date<="2011-09-30") #2004-2011 water y
 
 Additional spatial data were used for mapping purposes. The sources of these data are listed below.
 
-
-
+- USGS
+-- Basin delineation via StreamStats (streamstats.usgs.gov/ss/)
+-- Underwood gage latitude and longitude (https://waterdata.usgs.gov/wa/nwis/nwismap/?site_no=14123500&agency_cd=USGS)
+-- National Hydrography Dataset (NHD) (https://www.usgs.gov/core-science-systems/ngp/national-hydrography)
+- ArcGIS Image Service 
+-- Elevation tinted hillshade basemap
+-- Condit Dam latitude and longitude (remote sensed via basemap)
 
 
 \newpage
 
 # Exploratory Analysis 
 
-Originally, data from 1914 to present day was included (Figure 2). Given the data gap in the mid 1930s, data was parsed to begin on October 1, 1940. Daily data over 78 years results in almost 29,000 days of observations. The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence (Figure 3). A log transformation was carried out on monthly data but outliers remained; therefore, it was not used. Major regional flood events are visible in the raw data time series, including a localized flood event in 1974 and the historic flood of 1996. Descriptive statistics subset by time period show that the overall means, medians and various percentiles are relatively simialr across subsets but that, as expected, historic data have a lower minimum and higher maximum due to sample size. The 2011-2019 time period has a slightly elevated minimum and slightly lowered maximum as one would expect with less samples, but other percentiles and the median and mean are slightly elevated compared to other periods (Table 1).  This points to potential shifts in discharge trends. When the data is further broken down to monthly means by time period, it appears that seasonal shifts are potentially occurring (Figure 4). In particular, late winter to early spring months show increases in mean discharge compared to both historic and recent (2004-2011) data. Without a reservoir storing spring melt, the river seems to be experiencing higher rainy/wet season flow rates. Further statstistical tests are carried out below to assess this. 
+Originally, data from 1914 to present day was included (Figure 2). Given the data gap in the mid 1930s, data was parsed to begin on October 1, 1940. Daily data over 78 years results in almost 29,000 days of observations. While QA/QC code from USGS identified several days of estimated flows, these were included within the dataset because estimates can be derived from gage height measurements that exist at this station. The data here are generally positively skewed with outliers – this is expected to occur given flooding recurrence (Figure 3). A log transformation was carried out on monthly data but outliers remained; therefore, it was not used. Major regional flood events are visible in the raw data time series, including a localized flood event in 1974 and the historic flood of 1996. Descriptive statistics subset by time period show that the overall means, medians and various percentiles are relatively simialr across subsets but that, as expected, historic data have a lower minimum and higher maximum due to sample size. The 2011-2019 time period has a slightly elevated minimum and slightly lowered maximum as one would expect with less samples, but other percentiles and the median and mean are slightly elevated compared to other periods (Table 1).  This points to potential shifts in discharge trends. When the data is further broken down to monthly means by time period, it appears that seasonal shifts are potentially occurring (Figure 4). In particular, late winter to early spring months show increases in mean discharge compared to both historic and recent (2004-2011) data. Without a reservoir storing spring melt, the river seems to be experiencing higher rainy/wet season flow rates. Further statstistical tests are carried out below to assess this. 
 
 ```{r fig2, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Discharge over time with USGS QA/QC codes"}
 

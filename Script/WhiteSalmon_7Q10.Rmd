@@ -40,6 +40,8 @@ ws<- readNWISdv(siteNumbers = siteNo, parameterCd = pcode, statCd = scode, start
 #Rename columns
 ws <- renameNWISColumns(ws)
 colnames(ws)
+
+#write.csv(ws, "./Data/WhiteSalmon", row.names=FALSE)
 ```
 
 ## R Markdown
