@@ -59,7 +59,7 @@ colnames(ws)
 
 The White Salmon River (White Salmon) is a tributary of the Columbia River in Southern Washington. It provides habitat for at least 5 threatened and endangered fish species and is one of the best white water rivers in the US (Pesanti, 2016). In 1913, a hydroelectric dam, the Condit Dam, was built 3 miles from the mouth of the river (Figure 1: White Salmon River). The dam acted as barrier to salmon species and also to kayakers who paddle both upper reaches of the river and a short section below the dam.
 
-Below hydroelectric dams, the downstream discharge rates – measured in cubic feet per second (cfs) – become altered based on energy production (Grantham et al, 2014). These unnatural flows tend to lower the amount of water in the river during the dry season, as water is conserved in the upstream reservoir for continued energy production. This causes fewer days where the river downstream can be paddled, but more importantly, it is deleterious to salmon habitat (URS, 2005). In 2011, the Condit Dam was removed from the White Salmon. It is assumed that dam removal will benefit both salmon and white water enthusiasts through not only having a physical barrier removed but through restoring natural stream flow conditions on the White Salmon River.  
+Below hydroelectric dams, the downstream discharge rates – measured in cubic feet per second (cfs) – become altered based on energy production (Grantham et al, 2014). These unnatural flows tend to lower the amount of water in the river during the dry season, as water is conserved in the upstream reservoir for continued energy production. This causes deleterious conditions for salmon habitat (URS, 2005). In 2011, the Condit Dam was removed from the White Salmon. It is assumed that dam removal will benefit salmon through not only having a physical barrier removed but through restoring natural stream flow conditions on the White Salmon River.
 
 This is a multipronged assessment of streamflow trends in the White Salmon pre and post dam removal. I answer the question as to whether flows have changed after dam removal through flood and low flow interval comparisons, Wilcoxon signed-rank test, and seasonal mann kendall time series assessments.
 
@@ -119,13 +119,17 @@ predr <- subset(ws, Date >="2003-10-01" & Date<="2011-09-30") #2004-2011 water y
 
 Additional spatial data were used for mapping purposes. The sources of these data are listed below.
 
-- USGS
--- Basin delineation via StreamStats (streamstats.usgs.gov/ss/)
--- Underwood gage latitude and longitude (https://waterdata.usgs.gov/wa/nwis/nwismap/?site_no=14123500&agency_cd=USGS)
--- National Hydrography Dataset (NHD) (https://www.usgs.gov/core-science-systems/ngp/national-hydrography)
-- ArcGIS Image Service 
--- Elevation tinted hillshade basemap
--- Condit Dam latitude and longitude (remote sensed via basemap)
+**USGS**  
+
+- Basin delineation via StreamStats (streamstats.usgs.gov/ss/)
+- Underwood gage latitude and longitude (https://waterdata.usgs.gov/wa/nwis/nwismap/?site_no=14123500&agency_cd=USGS)
+- National Hydrography Dataset (NHD) (https://www.usgs.gov/core-science-systems/ngp/national-hydrography);  
+
+
+**ArcGIS Image Service**  
+
+- Elevation tinted hillshade basemap
+- Condit Dam latitude and longitude (remote sensed via basemap).
 
 
 \newpage
@@ -540,7 +544,7 @@ abline(h=low.7Q10.post[1], col="#46acc8", lty=4)
 points(low.days$Date, low.days$Flow, col="#e58601", pch=19)  
 abline(h=low.7Q10[1], col="#e58601", lty=4)
 n.years.post <- length(unique(low.days.post$Year))
-
+legend("topleft", legend=c("Days with flows less than period of record 7Q10", "Days with flows less than post dam removal 7Q10"), col = c("#e58601","#46acc8"), pch=c(19,19), bg="white", cex=0.8)
 ```
 
 
@@ -561,7 +565,6 @@ colnames(low.RI.table) <- c("Date Range", "7Q10 (cfs)","No Years","Annual Prob",
 
 knitr::kable(low.RI.table, caption = "7Q10s on the White Salmon River. Note that the number of years are the years where flows occur at or below 7Q10 within the entire period of record based on the 7Q10 for the given period.")
 ```
-
 
 
 ## Question 3: Is there a significant difference between historic and recent conditions and post-dam removal conditions? 
@@ -603,10 +606,10 @@ The Mann Kendall (MK) test is a non-parametric time series regression. It does n
 
 ### Overall MK test results
 
-Seasonal discharge rates were historically monotonic, and even the time period of 2004-2011 had significantly monotonic Seasonal discharge rates (historic: z = -4.33, p-value < 0.0001, seasonal Sen's slope = -1.46; recent pre-dam removal: z = 4.75, p-value < 0.0001, seasonal Sen's slope = 41.60). Conversely, there are no significant monotonic trends since the Condit dam was removed (post-dam removal: z = -1.23, p-value = 0.218). Note that the Sen's slopes associated with historic and 2004-2011 data show very different magnitudes of trends. Historic data shows monotonic decrease in seasonal discharges of -1.46 cfs, whereas the 2004-2011 data shows a seasonal increase of 41.60 cfs per year. The overall importance of these MK tests was to assess how post-dam conditions have changed, and the one conclusion that can be made is that monotonic trends have disappeared since the dam was removed. There is a major caveat here that assessing seasonal trends on an 8 year basis may not include enough data to provide reliable statsitical results. The test results from these three different time periods may be an artifice of this dilemma.The historic MK test results are likely more dependable given the extent of the dataframe. 
+Seasonal discharge rates were historically monotonic, and even the time period of 2004-2011 had significantly monotonic seasonal discharge rates (historic: z = -4.33, p-value < 0.0001, seasonal Sen's slope = -1.46; recent pre-dam removal: z = 4.75, p-value < 0.0001, seasonal Sen's slope = 41.60). Conversely, there are no significant monotonic trends since the Condit dam was removed (post-dam removal: z = -1.23, p-value = 0.218). Note that the Sen's slopes associated with historic and 2004-2011 data show very different magnitudes of trends. Historic data shows monotonic decrease in seasonal discharges of -1.46 cfs, whereas the 2004-2011 data shows a seasonal increase of 41.60 cfs per year. The overall importance of these MK tests was to assess how post-dam conditions have changed, and the one conclusion that can be made is that monotonic trends have disappeared since the dam was removed. There is a major caveat here that assessing seasonal trends on an 8 year basis may not include enough data to provide reliable statsitical results. The test results from these three different time periods may be an artifice of this dilemma.The historic MK test results are likely more dependable given the extent of the dataframe. More years of data area needed to assess post-dam removal conditions.
 
 ### Seasonal MK test results 
-The purpose of looking at MK test results for individual seasons was to assess which seasons are seeing more/less monotonic trends based on the p-values of these individual tests.Because the 2004-2011 data seems potentially flawed due to its smaller sample size, I am only going to look at the post-dam removal results compared to the historic results.The results show that every month had less monotonic trends than the historic data. Note that the post-dam removal resutls also come from a smaller sample size; what these results signify are a glimpse of trends so far. More years of data are needed for these tests to be reliable. Even with the flaws in the datasets sizes, some additional visualizations of monthly averages are included here with LOESS curves in order to visualize the range in monthly values within these three different datasets (Figures 8 and 9). These figures mimic the p-values seen in the seasonal results, which overall show the ranges in discharge to be more narrow in late summer to early fall and winter to spring flows to have much higher ranges. In Figure 9, it appears that February through July have experienced greater vacillation between low and high monthly averages in discharge when compared annually. It is still early, but this could be a sign that the dam was causing more monotonic flows in the river through the storage of water during the rainy/wet season. More years of data will be needed to assess the impact of dam removal. 
+The purpose of looking at MK test results for individual seasons was to assess which seasons are seeing more/less monotonic trends based on the p-values of these individual tests. Because the 2004-2011 data seems potentially flawed due to its smaller sample size, I am only going to look at the post-dam removal results compared to the historic results.The results show that every month had less monotonic trends than the historic data. Note that the post-dam removal resutls also come from a smaller sample size; what these results signify are a glimpse of trends so far. More years of data are needed for these tests to be reliable. Even with the flaws in the datasets sizes, some additional visualizations of monthly averages are included here with LOESS curves in order to visualize the range in monthly values within these three different datasets (Figures 8 and 9). These figures mimic the p-values seen in the seasonal results, which overall show the ranges in discharge to be more narrow in late summer to early fall, and winter to spring flows to have much higher ranges. In Figure 9, it appears that February through July have experienced greater vacillation between low and high monthly averages in discharge when compared annually. It is still early, but the overall picture painted here is that without the dam being present, there is no set minimum or maximum flow that is enforced by humans. The river appears to be pulsing more naturally. More years of data will be needed to assess the impact of dam removal. 
 
 
 There is a more complex story than expected when individual seasons for these MK test results are reviewed. The historic data showed significant monotonic trends for the months of September (S = -385, p-value = 0.06) and October (S = -439, p-value = 0.03) - late fall before the rainy season begins. The 2004-2011 data showed near significant monotonic trends for the months of May (S = 15, p-value = 0.06) and June (S =16, p-value = 0.06) - the beginning of the dry season. The historic data, again, is more reliable given the dataset's size. That September and October saw annual decreases in seasonal discharge rates suggests potentially drier conditions later into winter. This could be caused by climate change, or alternatively, it could be the result of dam management practices shifting over time. Practices that could have shifted include: drawing down the reservoir behind Condit dam earlier in the season in order to make room for a higher volume of winter flows (thus preventing infrastructure damage from high flows), or holding water back later in fall due to a lack of precipitation (thus allowing the dam to continue to produce electricity until the rainy season begins). Assessing this trend would require modeling precipitation trends within the basin.
@@ -908,7 +911,7 @@ ws.sep.equal <-
 
 ```
 
-```{r fig8, echo=FALSE,fig.width=7.25, fig.height=9, message=FALSE,include=TRUE,fig.cap=" Monthly LOESS curve fit to historic data (1941-2019 water years) on the White Salmon River. Vertical dashed line signifies Condit Dam removal."}
+```{r fig10, echo=FALSE,fig.width=7.25, fig.height=9, message=FALSE,include=TRUE,fig.cap=" Monthly LOESS curve fit to historic data (1941-2019 water years) on the White Salmon River. Vertical dashed line signifies Condit Dam removal."}
 Monthlygrid <- cowplot::plot_grid(
 ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, ws.aug, ws.sep,
    align = 'h', 
@@ -918,11 +921,11 @@ ws.oct, ws.nov, ws.dec, ws.jan, ws.feb, ws.mar, ws.apr, ws.may, ws.jun, ws.jul, 
 print(Monthlygrid)
 ```
 
-```{r fig9, fig.width = 7.25, fig.height=9, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Monthly LOESS curve fit to 2004-2011 and 2012-2019 water years on the White Salmon River. Vertical dashed line signifies Condit Dam removal. "}
+```{r fig11, fig.width = 7.25, fig.height=9, echo=FALSE,message=FALSE,include=TRUE,fig.cap="Monthly LOESS curve fit to 2004-2011 and 2012-2019 water years on the White Salmon River. Vertical dashed line signifies Condit Dam removal. "}
 
 Monthlygridequal <- cowplot::plot_grid(
 ws.oct.equal, ws.nov.equal, ws.dec.equal, ws.jan.equal, ws.feb.equal, ws.mar.equal, ws.apr.equal, ws.may.equal, ws.jun.equal, ws.jul.equal, ws.aug.equal, ws.sep.equal,
-   align = 'h', 
+   align = 'h',
    hjust = -1, 
    nrow = 4)
 
@@ -937,8 +940,16 @@ print(Monthlygridequal)
 
 # Summary and Conclusions
 
+There is a significant difference between flow rates on the White Salmon for the given time periods reviewed here. Since the Condit Dam was removed, low flow rates are modeled via 7Q10 to have increased in value, peak flow rates are modeled via flood return interval to have decreased in value, and overall flow trends are not monotonic. The implications here are that there seems to be a trend of higher low flows and lower high flows, both of which will benefit salmon migration and the food web that salmon depend on. It is likely that low flow rates were kept artificially low due to dam management, especially in the early years of the dam. High flow rates similarly may have been a product of dam management, with peak flows being more pronounced due to peak electricity demand. The switch from monotonic to non-monotonic trends is likely a product of the freeing of the river. All of these conclusions however are limited by the years of data available since dam removal. More years of data are needed. 
+
+
 
 \newpage
 
 # References
-<add references here if relevant, otherwise delete this section> 
+
+Environmental Protection Agency, 2018, October. "Low Flow Statistics Tools: a how-to handbook for NPDES permit waivers". Accessed online: https://www.epa.gov/sites/production/files/2018-11/documents/low_flow_stats_tools_handbook.pdf 
+
+Pesanti, Dameon. 2016, July 28. “White Salmon tributary lures young fish.” The Columbian. Accessed Online: https://www.columbian.com/news/2016/jul/28/white-salmon-tributary-lures-young-fish/
+
+URS. 2005. Condit Dam Removal Draft SEPA Supplemental Environmental Impact Statement (SEIS). For Washington Department of Ecology. Accessed online. https://fortress.wa.gov/ecy/publications/documents/0506022.pdf 
